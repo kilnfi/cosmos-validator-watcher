@@ -1,0 +1,97 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pkg/**'
+      - '*.go'
+      - 'go.*'
+      - Dockerfile
+      - .github/workflows/docker.yaml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'pkg/**'
+      - '*.go'
+      - 'go.*'
+      - Dockerfile
+      - .github/workflows/docker.yaml
+  release:
+    types:
+      - published
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: "Generate Build ID (main)"
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          branch=${GITHUB_REF##*/}
+          sha=${GITHUB_SHA::8}
+          ts=$(date +%s)
+          echo "BUILD_ID=${branch}-${ts}-${sha}" >> $GITHUB_ENV
+
+      - name: "Generate Build ID (PR)"
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "BUILD_ID=pr-${{ github.event.number }}-$GITHUB_RUN_ID" >> $GITHUB_ENV
+
+      - name: "Generate Build ID (Release)"
+        if: github.event_name == 'release'
+        run: |
+          echo "BUILD_ID=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - name: 'Generate App Version'
+        run: echo "VERSION=$(make version)" >> $GITHUB_ENV
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=pr
+            type=ref,event=branch
+            type=raw,value=${{ env.BUILD_ID }}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ env.VERSION }}
