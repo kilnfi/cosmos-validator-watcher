@@ -12,8 +12,8 @@ var Version = "v0.0.0-dev" // generated at build time
 
 func main() {
 	app := &cli.App{
-		Name:    "covmos-validator-watcher",
-		Usage:   "Cosmos Valdiator Watcher",
+		Name:    "cosmos-validator-watcher",
+		Usage:   "Real-time Cosmos-based chains monitoring tool",
 		Flags:   app.Flags,
 		Action:  app.RunFunc,
 		Version: Version,

@@ -50,10 +50,10 @@ docker run --rm ghcr.io/kilnfi/cosmos-validator-watcher:latest \
 cosmos-validator-watcher --help
 
 NAME:
-   covmos-validator-watcher - Cosmos Valdiator Watcher
+   cosmos-validator-watcher - Real-time Cosmos-based chains monitoring tool
 
 USAGE:
-   covmos-validator-watcher [global options] command [command options] [arguments...]
+   cosmos-validator-watcher [global options] command [command options] [arguments...]
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
