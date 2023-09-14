@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/cometbft/cometbft/types"
@@ -75,6 +76,7 @@ type ValidatorStatus struct {
 	Label   string
 	Bonded  bool
 	Signed  bool
+	Rank    int
 }
 
 func (e *Exporter) handleBlock(block *types.Block) {
@@ -91,6 +93,7 @@ func (e *Exporter) handleBlock(block *types.Block) {
 
 	e.latestBlockHeight = block.Header.Height
 	e.cfg.Metrics.BlockHeight.Set(float64(block.Header.Height))
+	e.cfg.Metrics.ActiveSet.Set(float64(len(block.LastCommit.Signatures)))
 	e.cfg.Metrics.TrackedBlocks.Inc()
 
 	result := BlockResult{
@@ -109,6 +112,7 @@ func (e *Exporter) handleBlock(block *types.Block) {
 	for _, val := range e.cfg.TrackedValidators {
 		bonded := false
 		signed := false
+		rank := 0
 		for i, sig := range block.LastCommit.Signatures {
 			if sig.ValidatorAddress.String() == "" {
 				log.Warn().Msgf("empty validator address at pos %d", i)
@@ -116,6 +120,7 @@ func (e *Exporter) handleBlock(block *types.Block) {
 			if val.Address == sig.ValidatorAddress.String() {
 				bonded = true
 				signed = !sig.Absent()
+				rank = i + 1
 			}
 			if signed {
 				break
@@ -126,6 +131,7 @@ func (e *Exporter) handleBlock(block *types.Block) {
 			Label:   val.Name,
 			Bonded:  bonded,
 			Signed:  signed,
+			Rank:    rank,
 		})
 	}
 
@@ -152,21 +158,61 @@ func (e *Exporter) handleBlock(block *types.Block) {
 }
 
 func (e *Exporter) handleValidators(validators []stakingtypes.Validator) {
+	// Sort validators by tokens & status (bonded, unbonded, jailed)
+	sort.Sort(RankedValidators(validators))
+
+	seatPrice := decimal.Zero
+	for _, val := range validators {
+		tokens := decimal.NewFromBigInt(val.Tokens.BigInt(), -6)
+		if val.Status == stakingtypes.Bonded && (seatPrice.IsZero() || seatPrice.GreaterThan(tokens)) {
+			seatPrice = tokens
+		}
+		e.cfg.Metrics.SeatPrice.Set(seatPrice.InexactFloat64())
+	}
+
 	for _, tracked := range e.cfg.TrackedValidators {
 		name := tracked.Name
 
-		for _, val := range validators {
+		for i, val := range validators {
 			pubkey := ed25519.PubKey{Key: val.ConsensusPubkey.Value[2:]}
 			address := pubkey.Address().String()
 
 			if tracked.Address == address {
-				bondedTokens, _ := decimal.NewFromBigInt(val.BondedTokens().BigInt(), -6).Float64()
+				var (
+					rank     = i + 1
+					isBonded = val.Status == stakingtypes.Bonded
+					isJailed = val.Jailed
+					tokens   = decimal.NewFromBigInt(val.Tokens.BigInt(), -6)
+				)
 
-				e.cfg.Metrics.BondedTokens.WithLabelValues(address, name).Set(bondedTokens)
-				e.cfg.Metrics.IsBonded.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Status == stakingtypes.Bonded))
-				e.cfg.Metrics.IsJailed.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Jailed))
+				e.cfg.Metrics.Rank.WithLabelValues(address, name).Set(float64(rank))
+				e.cfg.Metrics.Tokens.WithLabelValues(address, name).Set(tokens.InexactFloat64())
+				e.cfg.Metrics.IsBonded.WithLabelValues(address, name).Set(metrics.BoolToFloat64(isBonded))
+				e.cfg.Metrics.IsJailed.WithLabelValues(address, name).Set(metrics.BoolToFloat64(isJailed))
 				break
 			}
 		}
 	}
+}
+
+type RankedValidators []stakingtypes.Validator
+
+func (p RankedValidators) Len() int      { return len(p) }
+func (p RankedValidators) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (s RankedValidators) Less(i, j int) bool {
+	// Jailed validators are always last
+	if s[i].Jailed && !s[j].Jailed {
+		return false
+	} else if !s[i].Jailed && s[j].Jailed {
+		return true
+	}
+
+	// Not bonded validators are after bonded validators
+	if s[i].Status == stakingtypes.Bonded && s[j].Status != stakingtypes.Bonded {
+		return true
+	} else if s[i].Status != stakingtypes.Bonded && s[j].Status == stakingtypes.Bonded {
+		return false
+	}
+
+	return s[i].Tokens.BigInt().Cmp(s[j].Tokens.BigInt()) > 0
 }
