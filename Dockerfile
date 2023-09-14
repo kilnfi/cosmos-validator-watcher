@@ -14,11 +14,11 @@ COPY go.mod ./
 COPY go.sum ./
 RUN go mod download
 
+# Then copy the rest of the source code and build
 COPY . ./
-
 RUN make build
 
-# Final
+# Final image
 FROM alpine:3.18
 RUN apk upgrade && apk add --no-cache bash curl
 
