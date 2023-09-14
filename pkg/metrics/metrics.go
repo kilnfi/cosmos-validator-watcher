@@ -5,11 +5,14 @@ import "github.com/prometheus/client_golang/prometheus"
 type Metrics struct {
 	// Exporter metrics
 	BlockHeight     prometheus.Gauge
+	Rank            *prometheus.GaugeVec
+	ActiveSet       prometheus.Gauge
+	SeatPrice       prometheus.Gauge
 	ValidatedBlocks *prometheus.CounterVec
 	MissedBlocks    *prometheus.CounterVec
 	TrackedBlocks   prometheus.Counter
 	SkippedBlocks   prometheus.Counter
-	BondedTokens    *prometheus.GaugeVec
+	Tokens          *prometheus.GaugeVec
 	IsBonded        *prometheus.GaugeVec
 	IsJailed        *prometheus.GaugeVec
 
@@ -26,6 +29,28 @@ func New(namespace string) *Metrics {
 				Name:      "block_height",
 				Help:      "Latest known block height (all nodes mixed up)",
 			},
+		),
+		ActiveSet: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "active_set",
+				Help:      "Number of validators in the active set",
+			},
+		),
+		SeatPrice: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "seat_price",
+				Help:      "Min seat price to be in the active set (ie. bonded tokens of the latest validator)",
+			},
+		),
+		Rank: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "rank",
+				Help:      "Rank of the validator",
+			},
+			[]string{"address", "name"},
 		),
 		ValidatedBlocks: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -57,11 +82,11 @@ func New(namespace string) *Metrics {
 				Help:      "Number of blocks skipped (ie. not tracked) since start",
 			},
 		),
-		BondedTokens: prometheus.NewGaugeVec(
+		Tokens: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "bonded_tokens",
-				Help:      "Number of bonded tokens per validator",
+				Help:      "Number of staked tokens per validator",
 			},
 			[]string{"address", "name"},
 		),
@@ -100,11 +125,14 @@ func New(namespace string) *Metrics {
 	}
 
 	prometheus.MustRegister(metrics.BlockHeight)
+	prometheus.MustRegister(metrics.ActiveSet)
+	prometheus.MustRegister(metrics.SeatPrice)
+	prometheus.MustRegister(metrics.Rank)
 	prometheus.MustRegister(metrics.ValidatedBlocks)
 	prometheus.MustRegister(metrics.MissedBlocks)
 	prometheus.MustRegister(metrics.TrackedBlocks)
 	prometheus.MustRegister(metrics.SkippedBlocks)
-	prometheus.MustRegister(metrics.BondedTokens)
+	prometheus.MustRegister(metrics.Tokens)
 	prometheus.MustRegister(metrics.IsBonded)
 	prometheus.MustRegister(metrics.IsJailed)
 	prometheus.MustRegister(metrics.NodeBlockHeight)

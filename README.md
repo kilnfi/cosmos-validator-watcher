@@ -81,13 +81,16 @@ GLOBAL OPTIONS:
 All metrics are by default prefixed by `cosmos_validator_watcher` but this can be changed through options.
 
 Metrics (without prefix) | Description
-----------------------------------------------|------------------------------------------------
+-------------------------|-------------------------------------------------------------------------
 `block_height`           | Latest known block height (all nodes mixed up)
+`active_set`             | Number of validators in the active set
+`seat_price`             | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
+`rank`                   | Rank of the validator
 `validated_blocks`       | Number of validated blocks per validator (for a bonded validator)
 `missed_blocks`          | Number of missed blocks per validator (for a bonded validator)
 `tracked_blocks`         | Number of blocks tracked since start
 `skipped_blocks`         | Number of blocks skipped (ie. not tracked) since start
-`bonded_tokens`          | Number of bonded tokens per validator
+`tokens`                 | Number of staked tokens per validator
 `is_bonded`              | Set to 1 if the validator is bonded
 `is_jail`                | Set to 1 if the validator is jailed
 `node_block_height`      | Latest fetched block height for each node

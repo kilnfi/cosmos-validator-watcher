@@ -19,8 +19,10 @@ import (
 
 func TestExporter(t *testing.T) {
 	var (
-		address = "3DC4DD610817606AD4A8F9D762A068A81E8741E2"
-		name    = "Kiln"
+		kilnAddress = "3DC4DD610817606AD4A8F9D762A068A81E8741E2"
+		kilnName    = "Kiln"
+
+		miscAddress = "1234567890ABCDEF10817606AD4A8FD7620A81E4"
 	)
 
 	exporter := New(&Config{
@@ -30,8 +32,8 @@ func TestExporter(t *testing.T) {
 		ValidatorsChan: make(chan []stakingtypes.Validator),
 		TrackedValidators: []TrackedValidator{
 			{
-				Address: address,
-				Name:    name,
+				Address: kilnAddress,
+				Name:    kilnName,
 			},
 		},
 	})
@@ -68,7 +70,7 @@ func TestExporter(t *testing.T) {
 					Signatures: []types.CommitSig{
 						{
 							BlockIDFlag:      types.BlockIDFlagAbsent,
-							ValidatorAddress: MustParseAddress(address),
+							ValidatorAddress: MustParseAddress(kilnAddress),
 						},
 					},
 				},
@@ -78,8 +80,12 @@ func TestExporter(t *testing.T) {
 				LastCommit: &types.Commit{
 					Signatures: []types.CommitSig{
 						{
+							BlockIDFlag:      types.BlockIDFlagAbsent,
+							ValidatorAddress: MustParseAddress(miscAddress),
+						},
+						{
 							BlockIDFlag:      types.BlockIDFlagCommit,
-							ValidatorAddress: MustParseAddress(address),
+							ValidatorAddress: MustParseAddress(kilnAddress),
 						},
 					},
 				},
@@ -90,7 +96,11 @@ func TestExporter(t *testing.T) {
 					Signatures: []types.CommitSig{
 						{
 							BlockIDFlag:      types.BlockIDFlagCommit,
-							ValidatorAddress: MustParseAddress(address),
+							ValidatorAddress: MustParseAddress(miscAddress),
+						},
+						{
+							BlockIDFlag:      types.BlockIDFlagCommit,
+							ValidatorAddress: MustParseAddress(kilnAddress),
 						},
 					},
 				},
@@ -105,8 +115,8 @@ func TestExporter(t *testing.T) {
 			strings.Join([]string{
 				`#35   0/1 validators ⚪️ Kiln`,
 				`#40   0/1 validators ❌ Kiln`,
-				`#41   1/1 validators ✅ Kiln`,
-				`#42   1/1 validators ✅ Kiln`,
+				`#41   1/2 validators ✅ Kiln`,
+				`#42   2/2 validators ✅ Kiln`,
 			}, "\n")+"\n",
 			exporter.cfg.Writer.(*bytes.Buffer).String(),
 		)
@@ -114,6 +124,10 @@ func TestExporter(t *testing.T) {
 		assert.Equal(t,
 			`gauge:<value:42 > `,
 			ReadMetric(exporter.cfg.Metrics.BlockHeight),
+		)
+		assert.Equal(t,
+			`gauge:<value:2 > `,
+			ReadMetric(exporter.cfg.Metrics.ActiveSet),
 		)
 		assert.Equal(t,
 			`counter:<value:4 > `,
@@ -125,32 +139,54 @@ func TestExporter(t *testing.T) {
 		)
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > counter:<value:2 > `,
-			ReadMetric(exporter.cfg.Metrics.ValidatedBlocks.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.ValidatedBlocks.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > counter:<value:1 > `,
-			ReadMetric(exporter.cfg.Metrics.MissedBlocks.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.MissedBlocks.WithLabelValues(kilnAddress, kilnName)),
 		)
 	})
 
 	t.Run("Handle Validators", func(t *testing.T) {
-		prefix := "0000"
-		pubkey := "915dea44121fbceb01452f98ca005b457fe8360c5e191b6601ee01b8a8d407a0"
-		ba, err := hex.DecodeString(prefix + pubkey)
-		require.NoError(t, err)
+		createAddress := func(pubkey string) *codectypes.Any {
+			prefix := "0000"
+			ba, err := hex.DecodeString(prefix + pubkey)
+			require.NoError(t, err)
 
-		addr := &codectypes.Any{
-			TypeUrl: "/cosmos.crypto.ed25519.PubKey",
-			Value:   ba,
+			return &codectypes.Any{
+				TypeUrl: "/cosmos.crypto.ed25519.PubKey",
+				Value:   ba,
+			}
 		}
 
 		validators := []stakingtypes.Validator{
 			{
 				OperatorAddress: "",
-				ConsensusPubkey: addr,
+				ConsensusPubkey: createAddress("915dea44121fbceb01452f98ca005b457fe8360c5e191b6601ee01b8a8d407a0"), // 3DC4DD610817606AD4A8F9D762A068A81E8741E2
 				Jailed:          false,
 				Status:          stakingtypes.Bonded,
 				Tokens:          math.NewInt(42000000),
+			},
+			{
+				OperatorAddress: "",
+				ConsensusPubkey: createAddress("0000000000000000000000000000000000000000000000000000000000000001"),
+				Jailed:          false,
+				Status:          stakingtypes.Bonded,
+				Tokens:          math.NewInt(43000000),
+			},
+			{
+				OperatorAddress: "",
+				ConsensusPubkey: createAddress("0000000000000000000000000000000000000000000000000000000000000002"),
+				Jailed:          false,
+				Status:          stakingtypes.Unbonded,
+				Tokens:          math.NewInt(1000000),
+			},
+			{
+				OperatorAddress: "",
+				ConsensusPubkey: createAddress("0000000000000000000000000000000000000000000000000000000000000003"),
+				Jailed:          true,
+				Status:          stakingtypes.Bonded,
+				Tokens:          math.NewInt(99000000),
 			},
 		}
 
@@ -158,15 +194,19 @@ func TestExporter(t *testing.T) {
 
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:42 > `,
-			ReadMetric(exporter.cfg.Metrics.BondedTokens.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.Tokens.WithLabelValues(kilnAddress, kilnName)),
+		)
+		assert.Equal(t,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:2 > `,
+			ReadMetric(exporter.cfg.Metrics.Rank.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:1 > `,
-			ReadMetric(exporter.cfg.Metrics.IsBonded.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.IsBonded.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:0 > `,
-			ReadMetric(exporter.cfg.Metrics.IsJailed.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.IsJailed.WithLabelValues(kilnAddress, kilnName)),
 		)
 	})
 }
