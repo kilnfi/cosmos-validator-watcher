@@ -1,0 +1,51 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+change-template: '* $TITLE (#$NUMBER) by @$AUTHOR'
+template: |
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+sort-direction: ascending
+
+categories:
+  - title: '⚠️ BREAKING CHANGES'
+    label: 'breaking'
+  - title: '💫 Features'
+    label: 'feature'
+  - title: '🛠️ Bug fixes'
+    label: 'fix'
+  - title: '🕹️ Others'
+    label: 'chore'
+
+version-resolver:
+  # Major is not meant to be used at the moment.
+  # Should be used with label breaking in the future.
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'breaking'
+      - 'feature'
+      - 'chore'
+  patch:
+    labels:
+      - 'fix'
+
+exclude-labels:
+  - 'skip-changelog'
+
+autolabeler:
+  - label: 'breaking'
+    title:
+      - '/!:/i'
+  - label: 'chore'
+    title:
+      - '/^chore/i'
+  - label: 'fix'
+    title:
+      - '/^fix/i'
+  - label: 'feature'
+    title:
+      - '/^feat/i'
