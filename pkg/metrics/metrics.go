@@ -9,8 +9,9 @@ type Metrics struct {
 	MissedBlocks    *prometheus.CounterVec
 	TrackedBlocks   prometheus.Counter
 	SkippedBlocks   prometheus.Counter
-	ValidatorBonded *prometheus.GaugeVec
-	ValidatorJail   *prometheus.GaugeVec
+	BondedTokens    *prometheus.GaugeVec
+	IsBonded        *prometheus.GaugeVec
+	IsJailed        *prometheus.GaugeVec
 
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
@@ -56,18 +57,26 @@ func New(namespace string) *Metrics {
 				Help:      "Number of blocks skipped (ie. not tracked) since start",
 			},
 		),
-		ValidatorBonded: prometheus.NewGaugeVec(
+		BondedTokens: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "validator_bonded",
+				Name:      "bonded_tokens",
+				Help:      "Number of bonded tokens per validator",
+			},
+			[]string{"address", "name"},
+		),
+		IsBonded: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "is_bonded",
 				Help:      "Set to 1 if the validator is bonded",
 			},
 			[]string{"address", "name"},
 		),
-		ValidatorJail: prometheus.NewGaugeVec(
+		IsJailed: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "validator_jail",
+				Name:      "is_jailed",
 				Help:      "Set to 1 if the validator is jailed",
 			},
 			[]string{"address", "name"},
@@ -95,8 +104,9 @@ func New(namespace string) *Metrics {
 	prometheus.MustRegister(metrics.MissedBlocks)
 	prometheus.MustRegister(metrics.TrackedBlocks)
 	prometheus.MustRegister(metrics.SkippedBlocks)
-	prometheus.MustRegister(metrics.ValidatorBonded)
-	prometheus.MustRegister(metrics.ValidatorJail)
+	prometheus.MustRegister(metrics.BondedTokens)
+	prometheus.MustRegister(metrics.IsBonded)
+	prometheus.MustRegister(metrics.IsJailed)
 	prometheus.MustRegister(metrics.NodeBlockHeight)
 	prometheus.MustRegister(metrics.NodeSynced)
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/math"
 	"github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -149,18 +150,23 @@ func TestExporter(t *testing.T) {
 				ConsensusPubkey: addr,
 				Jailed:          false,
 				Status:          stakingtypes.Bonded,
+				Tokens:          math.NewInt(42000000),
 			},
 		}
 
 		exporter.handleValidators(validators)
 
 		assert.Equal(t,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:42 > `,
+			ReadMetric(exporter.cfg.Metrics.BondedTokens.WithLabelValues(address, name)),
+		)
+		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:1 > `,
-			ReadMetric(exporter.cfg.Metrics.ValidatorBonded.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.IsBonded.WithLabelValues(address, name)),
 		)
 		assert.Equal(t,
 			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:0 > `,
-			ReadMetric(exporter.cfg.Metrics.ValidatorJail.WithLabelValues(address, name)),
+			ReadMetric(exporter.cfg.Metrics.IsJailed.WithLabelValues(address, name)),
 		)
 	})
 }
