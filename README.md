@@ -87,8 +87,9 @@ Metrics (without prefix) | Description
 `missed_blocks`          | Number of missed blocks per validator (for a bonded validator)
 `tracked_blocks`         | Number of blocks tracked since start
 `skipped_blocks`         | Number of blocks skipped (ie. not tracked) since start
-`validator_bonded`       | Set to 1 if the validator is bonded
-`validator_jail`         | Set to 1 if the validator is jailed
+`bonded_tokens`          | Number of bonded tokens per validator
+`is_bonded`              | Set to 1 if the validator is bonded
+`is_jail`                | Set to 1 if the validator is jailed
 `node_block_height`      | Latest fetched block height for each node
 `node_synced`            | Set to 1 is the node is synced (ie. not catching-up)
 

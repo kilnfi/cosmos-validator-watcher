@@ -13,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/rs/zerolog/log"
+	"github.com/shopspring/decimal"
 )
 
 // TrackedValidator adds the ability to attach a custom name to a validator address
@@ -159,8 +160,11 @@ func (e *Exporter) handleValidators(validators []stakingtypes.Validator) {
 			address := pubkey.Address().String()
 
 			if tracked.Address == address {
-				e.cfg.Metrics.ValidatorBonded.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Status == stakingtypes.Bonded))
-				e.cfg.Metrics.ValidatorJail.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Jailed))
+				bondedTokens, _ := decimal.NewFromBigInt(val.BondedTokens().BigInt(), -6).Float64()
+
+				e.cfg.Metrics.BondedTokens.WithLabelValues(address, name).Set(bondedTokens)
+				e.cfg.Metrics.IsBonded.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Status == stakingtypes.Bonded))
+				e.cfg.Metrics.IsJailed.WithLabelValues(address, name).Set(metrics.BoolToFloat64(val.Jailed))
 				break
 			}
 		}

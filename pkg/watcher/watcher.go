@@ -213,8 +213,11 @@ func (w *Watcher) getValidators(ctx context.Context) ([]*types.Validator, error)
 }
 
 func (w *Watcher) syncStakingValidators(ctx context.Context) error {
-	clientCtx := (client.Context{}).WithClient(w.rpcClient)
+	if !w.Ready() {
+		return nil
+	}
 
+	clientCtx := (client.Context{}).WithClient(w.rpcClient)
 	queryClient := stakingtypes.NewQueryClient(clientCtx)
 
 	validators, err := queryClient.Validators(ctx, &stakingtypes.QueryValidatorsRequest{
