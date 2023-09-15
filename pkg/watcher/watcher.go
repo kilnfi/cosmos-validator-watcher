@@ -3,6 +3,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -27,8 +28,8 @@ type Config struct {
 type Watcher struct {
 	cfg *Config
 
+	isSynced   atomic.Bool
 	rpcClient  *http.HTTP
-	status     *ctypes.ResultStatus
 	validators []*types.Validator
 }
 
@@ -46,9 +47,7 @@ func New(config *Config) (*Watcher, error) {
 }
 
 func (w *Watcher) Ready() bool {
-	return w.status != nil &&
-		w.status.SyncInfo.CatchingUp == false &&
-		len(w.validators) > 0
+	return w.isSynced.Load()
 }
 
 func (w *Watcher) Start(ctx context.Context) error {
@@ -137,11 +136,11 @@ func (w *Watcher) syncStatus(ctx context.Context) error {
 	}, retryOpts...)
 
 	if err != nil {
-		w.status = nil
+		w.isSynced.Store(false)
 		w.cfg.Metrics.NodeSynced.WithLabelValues(w.cfg.Endpoint).Set(0)
 		return fmt.Errorf("failed to get node status: %w", err)
 	}
-	w.status = status
+	w.isSynced.Store(!status.SyncInfo.CatchingUp)
 	w.cfg.Metrics.NodeSynced.WithLabelValues(w.cfg.Endpoint).Set(metrics.BoolToFloat64(!status.SyncInfo.CatchingUp))
 	return nil
 }
