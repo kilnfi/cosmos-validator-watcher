@@ -85,7 +85,7 @@ func New(namespace string) *Metrics {
 		Tokens: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "bonded_tokens",
+				Name:      "tokens",
 				Help:      "Number of staked tokens per validator",
 			},
 			[]string{"address", "name"},
