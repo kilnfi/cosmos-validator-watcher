@@ -4,6 +4,10 @@ import "github.com/urfave/cli/v2"
 
 var Flags = []cli.Flag{
 	&cli.StringFlag{
+		Name:  "chain-id",
+		Usage: "to ensure all nodes matches the specific network (dismiss to auto-detected)",
+	},
+	&cli.StringFlag{
 		Name:  "http-addr",
 		Usage: "http server address",
 		Value: ":8080",

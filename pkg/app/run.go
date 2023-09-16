@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+	"github.com/cometbft/cometbft/rpc/client/http"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
@@ -23,13 +26,25 @@ import (
 
 func RunFunc(cCtx *cli.Context) error {
 	var (
+		ctx = cCtx.Context
+
+		// Config flags
+		chainID    = cCtx.String("chain-id")
 		httpAddr   = cCtx.String("http-addr")
 		namespace  = cCtx.String("namespace")
 		noColor    = cCtx.Bool("no-color")
 		nodes      = cCtx.StringSlice("node")
 		validators = cCtx.StringSlice("validator")
+
+		// Channels used to send data from watchers to the exporter
+		blockChan      = make(chan watcher.NodeEvent[*types.Block], 10)
+		statusChan     = make(chan watcher.NodeEvent[*ctypes.ResultStatus], 10)
+		validatorsChan = make(chan watcher.NodeEvent[[]stakingtypes.Validator], 10)
 	)
 
+	//
+	// Setup
+	//
 	// Logger setup
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -38,41 +53,13 @@ func RunFunc(cCtx *cli.Context) error {
 	color.NoColor = noColor
 
 	// Handle signals via context
-	ctx, stop := signal.NotifyContext(cCtx.Context, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Create errgroup to manage all goroutines
 	errg, ctx := errgroup.WithContext(ctx)
 
-	// Channels used to send data from watchers to the exporter
-	blockChan := make(chan *types.Block)
-	validatorsChan := make(chan []stakingtypes.Validator)
-
-	metrics := metrics.New(namespace)
-
-	//
-	// Start one watcher per node
-	//
-	watchers := make([]*watcher.Watcher, len(nodes))
-	for i, endpoint := range nodes {
-		log.Info().Msgf("connecting to node %s", endpoint)
-		watcher, err := watcher.New(&watcher.Config{
-			Endpoint:       endpoint,
-			Metrics:        metrics,
-			BlockChan:      blockChan,
-			ValidatorsChan: validatorsChan,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to watch node %s: %w", endpoint, err)
-		}
-		i := i
-		watchers[i] = watcher
-		errg.Go(func() error {
-			return watchers[i].Start(ctx)
-		})
-	}
-
-	//
-	// Start exporter
-	//
+	// Parse validators into name & address
 	trackedValidators := []exporter.TrackedValidator{}
 	for _, val := range validators {
 		parts := strings.Split(val, ":")
@@ -90,10 +77,78 @@ func RunFunc(cCtx *cli.Context) error {
 			})
 		}
 	}
+
+	//
+	// Start one watcher per node
+	//
+	watchers := make([]*watcher.Watcher, len(nodes))
+	for i, endpoint := range nodes {
+		i := i
+		endpoint := endpoint
+		errg.Go((func() error {
+			rpcClient, err := http.New(endpoint, "/websocket")
+			if err != nil {
+				return fmt.Errorf("failed to create client: %w", err)
+			}
+
+			// First get node status or retry until successful
+			status, err := retry.DoWithData(func() (*ctypes.ResultStatus, error) {
+				return rpcClient.Status(ctx)
+			},
+				retry.Context(ctx),
+				retry.Delay(1*time.Second),
+				retry.MaxDelay(120*time.Second),
+				retry.Attempts(0),
+				retry.OnRetry(func(_ uint, err error) {
+					log.Warn().Msgf("retrying connection to %s: %s", endpoint, err)
+				}),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get status: %w", err)
+			}
+
+			log.Info().Msgf("connected to %s", endpoint)
+			statusChan <- watcher.NodeEvent[*ctypes.ResultStatus]{
+				Endpoint: endpoint,
+				Data:     status,
+			}
+
+			// Create & start the watcher
+			watchers[i] = watcher.New(&watcher.Config{
+				RpcClient:      rpcClient,
+				BlockChan:      blockChan,
+				StatusChan:     statusChan,
+				ValidatorsChan: validatorsChan,
+			})
+
+			return watchers[i].Start(ctx)
+		}))
+	}
+
+	//
+	// Wait for 1 watcher to start and get the chain-id from it
+	//
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timed out waiting for connection to nodes")
+	case evt := <-statusChan:
+		if chainID == "" {
+			chainID = evt.Data.NodeInfo.Network
+		}
+		statusChan <- evt // put it back on the channel
+	}
+
+	//
+	// Start exporter
+	//
 	exporter := exporter.New(&exporter.Config{
 		TrackedValidators: trackedValidators,
-		Metrics:           metrics,
+		ChainID:           chainID,
+		Metrics:           metrics.New(namespace, chainID),
 		BlockChan:         blockChan,
+		StatusChan:        statusChan,
 		ValidatorsChan:    validatorsChan,
 	})
 	errg.Go(func() error {
@@ -133,9 +188,6 @@ func RunFunc(cCtx *cli.Context) error {
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Error().Err(fmt.Errorf("failed to stop http server: %w", err)).Msg("")
 	}
-
-	close(blockChan)
-	close(validatorsChan)
 
 	// Wait for all goroutines to finish
 	return errg.Wait()

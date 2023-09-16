@@ -11,6 +11,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/watcher"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
@@ -27,9 +28,9 @@ func TestExporter(t *testing.T) {
 
 	exporter := New(&Config{
 		Writer:         &bytes.Buffer{},
-		Metrics:        metrics.New("cosmos_validator_watcher"),
-		BlockChan:      make(chan *types.Block),
-		ValidatorsChan: make(chan []stakingtypes.Validator),
+		Metrics:        metrics.New("cosmos_validator_watcher", "cosmoshub-4"),
+		BlockChan:      make(chan watcher.NodeEvent[*types.Block]),
+		ValidatorsChan: make(chan watcher.NodeEvent[[]stakingtypes.Validator]),
 		TrackedValidators: []TrackedValidator{
 			{
 				Address: kilnAddress,
@@ -108,7 +109,10 @@ func TestExporter(t *testing.T) {
 		}
 
 		for _, block := range blocks {
-			exporter.handleBlock(block)
+			exporter.handleBlock(watcher.NodeEvent[*types.Block]{
+				Endpoint: "http://localhost:26657",
+				Data:     block,
+			})
 		}
 
 		assert.Equal(t,
@@ -122,27 +126,27 @@ func TestExporter(t *testing.T) {
 		)
 
 		assert.Equal(t,
-			`gauge:<value:42 > `,
+			`label:<name:"chain_id" value:"cosmoshub-4" > gauge:<value:42 > `,
 			ReadMetric(exporter.cfg.Metrics.BlockHeight),
 		)
 		assert.Equal(t,
-			`gauge:<value:2 > `,
+			`label:<name:"chain_id" value:"cosmoshub-4" > gauge:<value:2 > `,
 			ReadMetric(exporter.cfg.Metrics.ActiveSet),
 		)
 		assert.Equal(t,
-			`counter:<value:4 > `,
+			`label:<name:"chain_id" value:"cosmoshub-4" > counter:<value:4 > `,
 			ReadMetric(exporter.cfg.Metrics.TrackedBlocks),
 		)
 		assert.Equal(t,
-			`counter:<value:5 > `,
+			`label:<name:"chain_id" value:"cosmoshub-4" > counter:<value:5 > `,
 			ReadMetric(exporter.cfg.Metrics.SkippedBlocks),
 		)
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > counter:<value:2 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > counter:<value:2 > `,
 			ReadMetric(exporter.cfg.Metrics.ValidatedBlocks.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > counter:<value:1 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > counter:<value:1 > `,
 			ReadMetric(exporter.cfg.Metrics.MissedBlocks.WithLabelValues(kilnAddress, kilnName)),
 		)
 	})
@@ -190,22 +194,25 @@ func TestExporter(t *testing.T) {
 			},
 		}
 
-		exporter.handleValidators(validators)
+		exporter.handleValidators(watcher.NodeEvent[[]stakingtypes.Validator]{
+			Endpoint: "http://localhost:26657",
+			Data:     validators,
+		})
 
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:42 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > gauge:<value:42 > `,
 			ReadMetric(exporter.cfg.Metrics.Tokens.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:2 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > gauge:<value:2 > `,
 			ReadMetric(exporter.cfg.Metrics.Rank.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:1 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > gauge:<value:1 > `,
 			ReadMetric(exporter.cfg.Metrics.IsBonded.WithLabelValues(kilnAddress, kilnName)),
 		)
 		assert.Equal(t,
-			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"name" value:"Kiln" > gauge:<value:0 > `,
+			`label:<name:"address" value:"3DC4DD610817606AD4A8F9D762A068A81E8741E2" > label:<name:"chain_id" value:"cosmoshub-4" > label:<name:"name" value:"Kiln" > gauge:<value:0 > `,
 			ReadMetric(exporter.cfg.Metrics.IsJailed.WithLabelValues(kilnAddress, kilnName)),
 		)
 	})
