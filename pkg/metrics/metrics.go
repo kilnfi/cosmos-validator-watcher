@@ -21,104 +21,117 @@ type Metrics struct {
 	NodeSynced      *prometheus.GaugeVec
 }
 
-func New(namespace string) *Metrics {
+func New(namespace string, chainID string) *Metrics {
 	metrics := &Metrics{
 		BlockHeight: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "block_height",
-				Help:      "Latest known block height (all nodes mixed up)",
+				Namespace:   namespace,
+				Name:        "block_height",
+				Help:        "Latest known block height (all nodes mixed up)",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 		),
 		ActiveSet: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "active_set",
-				Help:      "Number of validators in the active set",
+				Namespace:   namespace,
+				Name:        "active_set",
+				Help:        "Number of validators in the active set",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 		),
 		SeatPrice: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "seat_price",
-				Help:      "Min seat price to be in the active set (ie. bonded tokens of the latest validator)",
+				Namespace:   namespace,
+				Name:        "seat_price",
+				Help:        "Min seat price to be in the active set (ie. bonded tokens of the latest validator)",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 		),
 		Rank: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "rank",
-				Help:      "Rank of the validator",
+				Namespace:   namespace,
+				Name:        "rank",
+				Help:        "Rank of the validator",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		ValidatedBlocks: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: namespace,
-				Name:      "validated_blocks",
-				Help:      "Number of validated blocks per validator (for a bonded validator)",
+				Namespace:   namespace,
+				Name:        "validated_blocks",
+				Help:        "Number of validated blocks per validator (for a bonded validator)",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		MissedBlocks: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: namespace,
-				Name:      "missed_blocks",
-				Help:      "Number of missed blocks per validator (for a bonded validator)",
+				Namespace:   namespace,
+				Name:        "missed_blocks",
+				Help:        "Number of missed blocks per validator (for a bonded validator)",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		TrackedBlocks: prometheus.NewCounter(
 			prometheus.CounterOpts{
-				Namespace: namespace,
-				Name:      "tracked_blocks",
-				Help:      "Number of blocks tracked since start",
+				Namespace:   namespace,
+				Name:        "tracked_blocks",
+				Help:        "Number of blocks tracked since start",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 		),
 		SkippedBlocks: prometheus.NewCounter(
 			prometheus.CounterOpts{
-				Namespace: namespace,
-				Name:      "skipped_blocks",
-				Help:      "Number of blocks skipped (ie. not tracked) since start",
+				Namespace:   namespace,
+				Name:        "skipped_blocks",
+				Help:        "Number of blocks skipped (ie. not tracked) since start",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 		),
 		Tokens: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "tokens",
-				Help:      "Number of staked tokens per validator",
+				Namespace:   namespace,
+				Name:        "tokens",
+				Help:        "Number of staked tokens per validator",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		IsBonded: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "is_bonded",
-				Help:      "Set to 1 if the validator is bonded",
+				Namespace:   namespace,
+				Name:        "is_bonded",
+				Help:        "Set to 1 if the validator is bonded",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		IsJailed: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "is_jailed",
-				Help:      "Set to 1 if the validator is jailed",
+				Namespace:   namespace,
+				Name:        "is_jailed",
+				Help:        "Set to 1 if the validator is jailed",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"address", "name"},
 		),
 		NodeBlockHeight: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "node_block_height",
-				Help:      "Latest fetched block height for each node",
+				Namespace:   namespace,
+				Name:        "node_block_height",
+				Help:        "Latest fetched block height for each node",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"node"},
 		),
 		NodeSynced: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      "node_synced",
-				Help:      "Set to 1 is the node is synced (ie. not catching-up)",
+				Namespace:   namespace,
+				Name:        "node_synced",
+				Help:        "Set to 1 is the node is synced (ie. not catching-up)",
+				ConstLabels: prometheus.Labels{"chain_id": chainID},
 			},
 			[]string{"node"},
 		),

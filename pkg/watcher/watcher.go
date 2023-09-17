@@ -13,16 +13,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
-	Endpoint string
-
-	Metrics        *metrics.Metrics
-	BlockChan      chan<- *types.Block
-	ValidatorsChan chan<- []stakingtypes.Validator
+	RpcClient      *http.HTTP
+	StatusChan     chan<- NodeEvent[*ctypes.ResultStatus]
+	BlockChan      chan<- NodeEvent[*types.Block]
+	ValidatorsChan chan<- NodeEvent[[]stakingtypes.Validator]
 }
 
 type Watcher struct {
@@ -33,17 +31,12 @@ type Watcher struct {
 	validators []*types.Validator
 }
 
-func New(config *Config) (*Watcher, error) {
-	rpcClient, err := http.New(config.Endpoint, "/websocket")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
-	}
-
+func New(config *Config) *Watcher {
 	return &Watcher{
 		cfg:        config,
-		rpcClient:  rpcClient,
+		rpcClient:  config.RpcClient,
 		validators: make([]*types.Validator, 0),
-	}, nil
+	}
 }
 
 func (w *Watcher) Ready() bool {
@@ -51,11 +44,6 @@ func (w *Watcher) Ready() bool {
 }
 
 func (w *Watcher) Start(ctx context.Context) error {
-	// Sync the initial state
-	if err := w.sync(ctx); err != nil {
-		return fmt.Errorf("failed to init sync: %w", err)
-	}
-
 	// Start the websocket process
 	if err := w.rpcClient.Start(); err != nil {
 		return fmt.Errorf("failed to start client: %w", err)
@@ -65,6 +53,11 @@ func (w *Watcher) Start(ctx context.Context) error {
 			log.Warn().Err(err).Msg("failed to stop client")
 		}
 	}()
+
+	// Sync the initial state
+	if err := w.sync(ctx); err != nil {
+		return fmt.Errorf("failed to init sync: %w", err)
+	}
 
 	// Subscribe to new blocks
 	blockEvents, err := w.rpcClient.Subscribe(ctx, "cosmos-validator-watcher", "tm.event='NewBlock'")
@@ -88,8 +81,11 @@ func (w *Watcher) Start(ctx context.Context) error {
 
 		case evt := <-blockEvents:
 			blockEvent := evt.Data.(types.EventDataNewBlock)
-			w.cfg.Metrics.NodeBlockHeight.WithLabelValues(w.cfg.Endpoint).Set(float64(blockEvent.Block.Header.Height))
-			w.cfg.BlockChan <- w.enhanceBlock(blockEvent.Block)
+			// w.cfg.Metrics.NodeBlockHeight.WithLabelValues(w.cfg.Endpoint).Set(float64(blockEvent.Block.Header.Height))
+			w.cfg.BlockChan <- NodeEvent[*types.Block]{
+				Endpoint: w.rpcClient.Remote(),
+				Data:     w.enhanceBlock(blockEvent.Block),
+			}
 
 		case evt := <-validatorEvents:
 			_ = evt.Data.(types.EventDataValidatorSetUpdates)
@@ -130,18 +126,28 @@ func (w *Watcher) syncStatus(ctx context.Context) error {
 		retry.Context(ctx),
 		retry.Delay(1 * time.Second),
 		retry.Attempts(3),
+		retry.OnRetry(func(n uint, err error) {
+			log.Warn().Msgf("retrying connection to %s: %s", w.rpcClient.Remote(), err)
+		}),
 	}
 	status, err := retry.DoWithData(func() (*ctypes.ResultStatus, error) {
 		return w.rpcClient.Status(ctx)
 	}, retryOpts...)
 
+	// Send the status to the exporter, even if it's nil
+	w.cfg.StatusChan <- NodeEvent[*ctypes.ResultStatus]{
+		Endpoint: w.rpcClient.Remote(),
+		Data:     status,
+	}
+
 	if err != nil {
 		w.isSynced.Store(false)
-		w.cfg.Metrics.NodeSynced.WithLabelValues(w.cfg.Endpoint).Set(0)
+		// w.cfg.Metrics.NodeSynced.WithLabelValues(w.cfg.Endpoint).Set(0)
 		return fmt.Errorf("failed to get node status: %w", err)
 	}
+
 	w.isSynced.Store(!status.SyncInfo.CatchingUp)
-	w.cfg.Metrics.NodeSynced.WithLabelValues(w.cfg.Endpoint).Set(metrics.BoolToFloat64(!status.SyncInfo.CatchingUp))
+
 	return nil
 }
 
@@ -228,7 +234,10 @@ func (w *Watcher) syncStakingValidators(ctx context.Context) error {
 		return fmt.Errorf("failed to get validators: %w", err)
 	}
 
-	w.cfg.ValidatorsChan <- validators.Validators
+	w.cfg.ValidatorsChan <- NodeEvent[[]stakingtypes.Validator]{
+		Endpoint: w.rpcClient.Remote(),
+		Data:     validators.Validators,
+	}
 
 	return nil
 }

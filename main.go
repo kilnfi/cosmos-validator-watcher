@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/app"
@@ -19,7 +21,7 @@ func main() {
 		Version: Version,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(os.Args); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal().Err(err).Msg("")
 	}
 }
