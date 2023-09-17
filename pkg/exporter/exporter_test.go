@@ -49,7 +49,7 @@ func TestExporter(t *testing.T) {
 	t.Run("Handle Blocks", func(t *testing.T) {
 		blocks := []*types.Block{
 			{
-				Header: types.Header{Height: 35},
+				Header: types.Header{Height: 36},
 				LastCommit: &types.Commit{
 					Signatures: []types.CommitSig{
 						{
@@ -60,7 +60,7 @@ func TestExporter(t *testing.T) {
 				},
 			},
 			{
-				Header: types.Header{Height: 40},
+				Header: types.Header{Height: 41},
 				LastCommit: &types.Commit{
 					Signatures: []types.CommitSig{
 						{
@@ -71,7 +71,7 @@ func TestExporter(t *testing.T) {
 				},
 			},
 			{
-				Header: types.Header{Height: 41},
+				Header: types.Header{Height: 42},
 				LastCommit: &types.Commit{
 					Signatures: []types.CommitSig{
 						{
@@ -86,7 +86,7 @@ func TestExporter(t *testing.T) {
 				},
 			},
 			{
-				Header: types.Header{Height: 42},
+				Header: types.Header{Height: 43},
 				LastCommit: &types.Commit{
 					Signatures: []types.CommitSig{
 						{
@@ -119,7 +119,7 @@ func TestExporter(t *testing.T) {
 			exporter.cfg.Writer.(*bytes.Buffer).String(),
 		)
 
-		assert.Equal(t, float64(42), testutil.ToFloat64(exporter.cfg.Metrics.BlockHeight))
+		assert.Equal(t, float64(43), testutil.ToFloat64(exporter.cfg.Metrics.BlockHeight))
 		assert.Equal(t, float64(2), testutil.ToFloat64(exporter.cfg.Metrics.ActiveSet))
 		assert.Equal(t, float64(4), testutil.ToFloat64(exporter.cfg.Metrics.TrackedBlocks))
 		assert.Equal(t, float64(5), testutil.ToFloat64(exporter.cfg.Metrics.SkippedBlocks))
