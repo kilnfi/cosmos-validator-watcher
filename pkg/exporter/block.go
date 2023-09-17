@@ -48,7 +48,7 @@ func (e *Exporter) handleBlock(evt watcher.NodeEvent[*types.Block]) error {
 	e.cfg.Metrics.TrackedBlocks.Inc()
 
 	result := BlockResult{
-		Height:          block.Header.Height,
+		Height:          block.Header.Height - 1,
 		TotalValidators: len(block.LastCommit.Signatures),
 	}
 
