@@ -21,6 +21,7 @@ type Config struct {
 	StatusChan     chan<- NodeEvent[*ctypes.ResultStatus]
 	BlockChan      chan<- NodeEvent[*types.Block]
 	ValidatorsChan chan<- NodeEvent[[]stakingtypes.Validator]
+	DisableStaking bool
 }
 
 type Watcher struct {
@@ -218,7 +219,7 @@ func (w *Watcher) getValidators(ctx context.Context) ([]*types.Validator, error)
 }
 
 func (w *Watcher) syncStakingValidators(ctx context.Context) error {
-	if !w.Ready() {
+	if w.cfg.DisableStaking || !w.Ready() {
 		return nil
 	}
 

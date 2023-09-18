@@ -23,8 +23,12 @@ var Flags = []cli.Flag{
 	},
 	&cli.StringSliceFlag{
 		Name:  "node",
-		Usage: "RPC node endpoint to connect to (speficied multiple nodes for high availability)",
+		Usage: "rpc node endpoint to connect to (specify multiple for high availability)",
 		Value: cli.NewStringSlice("http://localhost:26657"),
+	},
+	&cli.BoolFlag{
+		Name:  "no-staking",
+		Usage: "disable calls to staking module (useful for consumer chains)",
 	},
 	&cli.StringSliceFlag{
 		Name:  "validator",

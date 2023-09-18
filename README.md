@@ -59,10 +59,12 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --chain-id value                         to ensure all nodes matches the specific network (dismiss to auto-detected)
    --http-addr value                        http server address (default: ":8080")
    --namespace value                        namespace for Prometheus metrics (default: "cosmos_validator_watcher")
    --no-color                               disable colored output (default: false)
-   --node value [ --node value ]            RPC node endpoint to connect to (speficied multiple nodes for high availability) (default: "http://localhost:26657")
+   --node value [ --node value ]            rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
+   --no-staking                             disable calls to staking module (useful for consumer chains) (default: false)
    --validator value [ --validator value ]  validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
    --help, -h                               show help
    --version, -v                            print the version
