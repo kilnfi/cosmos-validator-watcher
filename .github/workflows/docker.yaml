@@ -26,6 +26,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PLATFORMS: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
 
 jobs:
   build:
@@ -33,16 +34,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    strategy:
-      matrix:
-        os: [linux]
-        arch: [amd64, arm64]
-
-        # Exclude arm64 build in pull requests
-        is_pr: ["${{github.event_name == 'pull_request'}}"]
-        exclude:
-          - { is_pr: true, arch: arm64 }
 
     steps:
       - name: Checkout repository
@@ -103,8 +94,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: ${{ matrix.os }}/${{ matrix.arch }}
-          cache-from: type=gha,scope=${{ matrix.os }}/${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.os }}/${{ matrix.arch }}
+          platforms: ${{ env.PLATFORMS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ env.VERSION }}
