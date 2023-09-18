@@ -34,6 +34,7 @@ func RunFunc(cCtx *cli.Context) error {
 		namespace  = cCtx.String("namespace")
 		noColor    = cCtx.Bool("no-color")
 		nodes      = cCtx.StringSlice("node")
+		noStaking  = cCtx.Bool("no-staking")
 		validators = cCtx.StringSlice("validator")
 
 		// Channels used to send data from watchers to the exporter
@@ -119,6 +120,7 @@ func RunFunc(cCtx *cli.Context) error {
 				BlockChan:      blockChan,
 				StatusChan:     statusChan,
 				ValidatorsChan: validatorsChan,
+				DisableStaking: noStaking,
 			})
 
 			return watchers[i].Start(ctx)
