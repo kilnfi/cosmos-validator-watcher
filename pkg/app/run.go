@@ -5,21 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/cometbft/cometbft/rpc/client/http"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	"github.com/cometbft/cometbft/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
-	"github.com/kilnfi/cosmos-validator-watcher/pkg/exporter"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/watcher"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,16 +27,12 @@ func RunFunc(cCtx *cli.Context) error {
 		// Config flags
 		chainID    = cCtx.String("chain-id")
 		httpAddr   = cCtx.String("http-addr")
+		logLevel   = cCtx.String("log-level")
 		namespace  = cCtx.String("namespace")
 		noColor    = cCtx.Bool("no-color")
 		nodes      = cCtx.StringSlice("node")
 		noStaking  = cCtx.Bool("no-staking")
 		validators = cCtx.StringSlice("validator")
-
-		// Channels used to send data from watchers to the exporter
-		blockChan      = make(chan watcher.NodeEvent[*types.Block], 10)
-		statusChan     = make(chan watcher.NodeEvent[*ctypes.ResultStatus], 10)
-		validatorsChan = make(chan watcher.NodeEvent[[]stakingtypes.Validator], 10)
 	)
 
 	//
@@ -49,6 +41,18 @@ func RunFunc(cCtx *cli.Context) error {
 	// Logger setup
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	switch logLevel {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		return fmt.Errorf("invalid log level: %s", logLevel)
+	}
 
 	// Disable colored output if requested
 	color.NoColor = noColor
@@ -61,110 +65,77 @@ func RunFunc(cCtx *cli.Context) error {
 	errg, ctx := errgroup.WithContext(ctx)
 
 	// Parse validators into name & address
-	trackedValidators := []exporter.TrackedValidator{}
-	for _, val := range validators {
-		parts := strings.Split(val, ":")
-		if len(parts) > 1 {
-			log.Info().Msgf("tracking validator %s as %s", parts[0], parts[1])
-			trackedValidators = append(trackedValidators, exporter.TrackedValidator{
-				Address: parts[0],
-				Name:    parts[1],
-			})
-		} else {
-			log.Info().Msgf("tracking validator %s", parts[0])
-			trackedValidators = append(trackedValidators, exporter.TrackedValidator{
-				Address: parts[0],
-				Name:    parts[0],
-			})
-		}
+	trackedValidators := lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
+		return watcher.ParseValidator(v)
+	})
+	for _, v := range trackedValidators {
+		log.Info().Str("alias", v.Name).Msgf("tracking validator %s", v.Address)
 	}
 
 	//
-	// Start one watcher per node
+	// Node Watchers
 	//
-	watchers := make([]*watcher.Watcher, len(nodes))
+	metrics := metrics.New(namespace)
+	metrics.Register()
+	blockWatcher := watcher.NewBlockWatcher(trackedValidators, metrics, os.Stdout)
+	errg.Go(func() error {
+		return blockWatcher.Start(ctx)
+	})
+	statusWatcher := watcher.NewStatusWatcher(chainID, metrics)
+	errg.Go(func() error {
+		return statusWatcher.Start(ctx)
+	})
+
+	//
+	// Nodes
+	//
+	rpcNodes := make([]*rpc.Node, len(nodes))
 	for i, endpoint := range nodes {
-		i := i
-		endpoint := endpoint
-		errg.Go((func() error {
-			rpcClient, err := http.New(endpoint, "/websocket")
-			if err != nil {
-				return fmt.Errorf("failed to create client: %w", err)
-			}
-
-			// First get node status or retry until successful
-			status, err := retry.DoWithData(func() (*ctypes.ResultStatus, error) {
-				return rpcClient.Status(ctx)
-			},
-				retry.Context(ctx),
-				retry.Delay(1*time.Second),
-				retry.MaxDelay(120*time.Second),
-				retry.Attempts(0),
-				retry.OnRetry(func(_ uint, err error) {
-					log.Warn().Msgf("retrying connection to %s: %s", endpoint, err)
-				}),
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get status: %w", err)
-			}
-
-			log.Info().Msgf("connected to %s", endpoint)
-			statusChan <- watcher.NodeEvent[*ctypes.ResultStatus]{
-				Endpoint: endpoint,
-				Data:     status,
-			}
-
-			// Create & start the watcher
-			watchers[i] = watcher.New(&watcher.Config{
-				RpcClient:      rpcClient,
-				BlockChan:      blockChan,
-				StatusChan:     statusChan,
-				ValidatorsChan: validatorsChan,
-				DisableStaking: noStaking,
-			})
-
-			return watchers[i].Start(ctx)
-		}))
+		client, err := http.New(endpoint, "/websocket")
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+		rpcNodes[i] = rpc.NewNode(
+			client,
+			rpc.WithOnStart(blockWatcher.OnNodeStart),
+			rpc.WithOnStatus(statusWatcher.OnNodeStatus),
+		)
 	}
+	pool := rpc.NewPool(rpcNodes)
+	errg.Go(func() error {
+		return pool.Start(ctx)
+	})
 
 	//
-	// Wait for 1 watcher to start and get the chain-id from it
+	// Wait for connection
 	//
 	select {
 	case <-ctx.Done():
-		return nil
+		// cancelled before any nodes started
 	case <-time.After(10 * time.Second):
 		return fmt.Errorf("timed out waiting for connection to nodes")
-	case evt := <-statusChan:
-		if chainID == "" {
-			chainID = evt.Data.NodeInfo.Network
-		}
-		statusChan <- evt // put it back on the channel
+	case <-pool.Started():
+		// at least one node started
 	}
 
 	//
-	// Start exporter
+	// Pool watchers
 	//
-	exporter := exporter.New(&exporter.Config{
-		TrackedValidators: trackedValidators,
-		ChainID:           chainID,
-		Metrics:           metrics.New(namespace, chainID),
-		BlockChan:         blockChan,
-		StatusChan:        statusChan,
-		ValidatorsChan:    validatorsChan,
-	})
-	errg.Go(func() error {
-		return exporter.Start(ctx)
-	})
+	if !noStaking {
+		validatorsWatcher := watcher.NewValidatorsWatcher(trackedValidators, metrics, pool)
+		errg.Go(func() error {
+			return validatorsWatcher.Start(ctx)
+		})
+	}
 
 	//
-	// Start HTTP server
+	// HTTP server
 	//
 	log.Info().Msgf("starting HTTP server on %s", httpAddr)
 	readyFn := func() bool {
 		// ready when at least one watcher is ready
-		for _, watcher := range watchers {
-			if watcher.Ready() {
+		for _, node := range pool.Nodes {
+			if node.IsSynced() {
 				return true
 			}
 		}
@@ -187,6 +158,9 @@ func RunFunc(cCtx *cli.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	if err := pool.Stop(ctx); err != nil {
+		log.Error().Err(fmt.Errorf("failed to stop node pool: %w", err)).Msg("")
+	}
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Error().Err(fmt.Errorf("failed to stop http server: %w", err)).Msg("")
 	}

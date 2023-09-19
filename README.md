@@ -61,6 +61,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --chain-id value                         to ensure all nodes matches the specific network (dismiss to auto-detected)
    --http-addr value                        http server address (default: ":8080")
+   --log-level value                        log level (debug, info, warn, error) (default: "info")
    --namespace value                        namespace for Prometheus metrics (default: "cosmos_validator_watcher")
    --no-color                               disable colored output (default: false)
    --node value [ --node value ]            rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
@@ -82,31 +83,21 @@ GLOBAL OPTIONS:
 
 All metrics are by default prefixed by `cosmos_validator_watcher` but this can be changed through options.
 
-Metrics (without prefix) | Description
--------------------------|-------------------------------------------------------------------------
-`block_height`           | Latest known block height (all nodes mixed up)
-`active_set`             | Number of validators in the active set
-`seat_price`             | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
-`rank`                   | Rank of the validator
-`validated_blocks`       | Number of validated blocks per validator (for a bonded validator)
-`missed_blocks`          | Number of missed blocks per validator (for a bonded validator)
-`tracked_blocks`         | Number of blocks tracked since start
-`skipped_blocks`         | Number of blocks skipped (ie. not tracked) since start
-`tokens`                 | Number of staked tokens per validator
-`is_bonded`              | Set to 1 if the validator is bonded
-`is_jail`                | Set to 1 if the validator is jailed
-`node_block_height`      | Latest fetched block height for each node
-`node_synced`            | Set to 1 is the node is synced (ie. not catching-up)
-
-
-## ➡️ Flow
-
-The app is structured in 2 parts:
-
-- `watcher` connects to a Cosmos-based RPC node and watches for new blocks and the active validator set. You can use as many watchers as you want to ensure resilience and avoid missing any blocks.
-- `exporter` receives data from all watchers, exposes Prometheus metrics, and writes status to standard output.
-
-![Cosmos Validator Watcher Flow](assets/cosmos-validator-watcher-flow.png)
+Metrics (without prefix)  | Description
+--------------------------|-------------------------------------------------------------------------
+`active_set`              | Number of validators in the active set
+`block_height`            | Latest known block height (all nodes mixed up)
+`is_bonded`               | Set to 1 if the validator is bonded
+`is_jailed`               | Set to 1 if the validator is jailed
+`missed_blocks`           | Number of missed blocks per validator (for a bonded validator)
+`node_block_height`       | Latest fetched block height for each node
+`node_synced`             | Set to 1 is the node is synced (ie. not catching-up)
+`rank`                    | Rank of the validator
+`seat_price`              | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
+`skipped_blocks`          | Number of blocks skipped (ie. not tracked) since start
+`tokens`                  | Number of staked tokens per validator
+`tracked_blocks`          | Number of blocks tracked since start
+`validated_blocks`        | Number of validated blocks per validator (for a bonded validator)
 
 
 ## ❓FAQ
