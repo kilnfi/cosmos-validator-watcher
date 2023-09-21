@@ -99,6 +99,7 @@ Metrics (without prefix)  | Description
 `tokens`                  | Number of staked tokens per validator
 `tracked_blocks`          | Number of blocks tracked since start
 `validated_blocks`        | Number of validated blocks per validator (for a bonded validator)
+`upgrade_plan`            | Block height of the upcoming upgrade (hard fork)
 
 
 ## ❓FAQ

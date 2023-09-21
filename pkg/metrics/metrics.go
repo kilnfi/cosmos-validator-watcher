@@ -3,16 +3,20 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 type Metrics struct {
-	// Exporter metrics
-	BlockHeight      *prometheus.GaugeVec
+
+	// Global metrics
+	ActiveSet     *prometheus.GaugeVec
+	BlockHeight   *prometheus.GaugeVec
+	SeatPrice     *prometheus.GaugeVec
+	UpgradePlan   *prometheus.GaugeVec
+	TrackedBlocks *prometheus.CounterVec
+	SkippedBlocks *prometheus.CounterVec
+
+	// Validator metrics
 	Rank             *prometheus.GaugeVec
-	ActiveSet        *prometheus.GaugeVec
-	SeatPrice        *prometheus.GaugeVec
 	ValidatedBlocks  *prometheus.CounterVec
 	MissedBlocks     *prometheus.CounterVec
 	SoloMissedBlocks *prometheus.CounterVec
-	TrackedBlocks    *prometheus.CounterVec
-	SkippedBlocks    *prometheus.CounterVec
 	Tokens           *prometheus.GaugeVec
 	IsBonded         *prometheus.GaugeVec
 	IsJailed         *prometheus.GaugeVec
@@ -136,6 +140,14 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "node"},
 		),
+		UpgradePlan: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "upgrade_plan",
+				Help:      "Block height of the upcoming upgrade (hard fork)",
+			},
+			[]string{"chain_id", "version"},
+		),
 	}
 
 	return metrics
@@ -156,4 +168,5 @@ func (m *Metrics) Register() {
 	prometheus.MustRegister(m.IsJailed)
 	prometheus.MustRegister(m.NodeBlockHeight)
 	prometheus.MustRegister(m.NodeSynced)
+	prometheus.MustRegister(m.UpgradePlan)
 }
