@@ -32,6 +32,10 @@ var Flags = []cli.Flag{
 		Value: cli.NewStringSlice("http://localhost:26657"),
 	},
 	&cli.BoolFlag{
+		Name:  "no-gov",
+		Usage: "disable calls to gov module (useful for consumer chains)",
+	},
+	&cli.BoolFlag{
 		Name:  "no-staking",
 		Usage: "disable calls to staking module (useful for consumer chains)",
 	},
