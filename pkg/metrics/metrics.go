@@ -4,17 +4,18 @@ import "github.com/prometheus/client_golang/prometheus"
 
 type Metrics struct {
 	// Exporter metrics
-	BlockHeight     *prometheus.GaugeVec
-	Rank            *prometheus.GaugeVec
-	ActiveSet       *prometheus.GaugeVec
-	SeatPrice       *prometheus.GaugeVec
-	ValidatedBlocks *prometheus.CounterVec
-	MissedBlocks    *prometheus.CounterVec
-	TrackedBlocks   *prometheus.CounterVec
-	SkippedBlocks   *prometheus.CounterVec
-	Tokens          *prometheus.GaugeVec
-	IsBonded        *prometheus.GaugeVec
-	IsJailed        *prometheus.GaugeVec
+	BlockHeight      *prometheus.GaugeVec
+	Rank             *prometheus.GaugeVec
+	ActiveSet        *prometheus.GaugeVec
+	SeatPrice        *prometheus.GaugeVec
+	ValidatedBlocks  *prometheus.CounterVec
+	MissedBlocks     *prometheus.CounterVec
+	SoloMissedBlocks *prometheus.CounterVec
+	TrackedBlocks    *prometheus.CounterVec
+	SkippedBlocks    *prometheus.CounterVec
+	Tokens           *prometheus.GaugeVec
+	IsBonded         *prometheus.GaugeVec
+	IsJailed         *prometheus.GaugeVec
 
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
@@ -68,6 +69,14 @@ func New(namespace string) *Metrics {
 				Namespace: namespace,
 				Name:      "missed_blocks",
 				Help:      "Number of missed blocks per validator (for a bonded validator)",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		SoloMissedBlocks: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "solo_missed_blocks",
+				Help:      "Number of missed blocks per validator, unless block is missed by many other validators",
 			},
 			[]string{"chain_id", "address", "name"},
 		),
@@ -139,6 +148,7 @@ func (m *Metrics) Register() {
 	prometheus.MustRegister(m.Rank)
 	prometheus.MustRegister(m.ValidatedBlocks)
 	prometheus.MustRegister(m.MissedBlocks)
+	prometheus.MustRegister(m.SoloMissedBlocks)
 	prometheus.MustRegister(m.TrackedBlocks)
 	prometheus.MustRegister(m.SkippedBlocks)
 	prometheus.MustRegister(m.Tokens)
