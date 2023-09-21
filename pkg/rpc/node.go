@@ -122,7 +122,9 @@ func (n *Node) Start(ctx context.Context) {
 			n.startedOnce.Do(func() {
 				n.chainID = status.NodeInfo.Network
 				log.Info().Int64("height", status.SyncInfo.LatestBlockHeight).Msgf("connected to node %s", n.Client.Remote())
-				n.handleStart(ctx)
+				if err := n.handleStart(ctx); err != nil {
+					log.Error().Err(err).Msgf("failed to start node")
+				}
 			})
 		}
 
