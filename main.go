@@ -22,6 +22,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil && !errors.Is(err, context.Canceled) {
-		log.Fatal().Err(err).Msg("")
+		log.Error().Err(err).Msg("")
 	}
 }

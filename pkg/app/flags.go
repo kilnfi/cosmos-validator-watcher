@@ -13,6 +13,11 @@ var Flags = []cli.Flag{
 		Value: ":8080",
 	},
 	&cli.StringFlag{
+		Name:  "log-level",
+		Usage: "log level (debug, info, warn, error)",
+		Value: "info",
+	},
+	&cli.StringFlag{
 		Name:  "namespace",
 		Usage: "namespace for Prometheus metrics",
 		Value: "cosmos_validator_watcher",
