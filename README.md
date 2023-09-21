@@ -95,6 +95,7 @@ Metrics (without prefix)  | Description
 `rank`                    | Rank of the validator
 `seat_price`              | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
 `skipped_blocks`          | Number of blocks skipped (ie. not tracked) since start
+`solo_missed_blocks`      | Number of missed blocks per validator, unless the block is missed by many other validators
 `tokens`                  | Number of staked tokens per validator
 `tracked_blocks`          | Number of blocks tracked since start
 `validated_blocks`        | Number of validated blocks per validator (for a bonded validator)

@@ -12,6 +12,7 @@ import (
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/rs/zerolog/log"
+	"github.com/shopspring/decimal"
 )
 
 type BlockInfo struct {
@@ -38,6 +39,15 @@ func NewBlockInfo(block *types.Block) *BlockInfo {
 		SignedValidators: signedValidators,
 		ValidatorStatus:  []ValidatorStatus{},
 	}
+}
+
+func (b *BlockInfo) SignedRatio() decimal.Decimal {
+	if b.TotalValidators == 0 {
+		return decimal.Zero
+	}
+
+	return decimal.NewFromInt(int64(b.SignedValidators)).
+		Div(decimal.NewFromInt(int64(b.TotalValidators)))
 }
 
 type ValidatorStatus struct {
@@ -183,6 +193,7 @@ func (w *BlockWatcher) handleBlock(block *types.Block) {
 	for _, val := range w.validators {
 		w.metrics.ValidatedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.MissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
+		w.metrics.SoloMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 	}
 	w.metrics.SkippedBlocks.WithLabelValues(chainId)
 
@@ -246,6 +257,11 @@ func (w *BlockWatcher) handleBlockInfo(result *BlockInfo) {
 		} else if res.Bonded {
 			icon = "❌"
 			w.metrics.MissedBlocks.WithLabelValues(result.ChainID, res.Address, res.Label).Inc()
+
+			// Check if solo missed block
+			if result.SignedRatio().GreaterThan(decimal.NewFromFloat(0.66)) {
+				w.metrics.SoloMissedBlocks.WithLabelValues(result.ChainID, res.Address, res.Label).Inc()
+			}
 		}
 		validatorStatus = append(validatorStatus, fmt.Sprintf("%s %s", icon, res.Label))
 	}
