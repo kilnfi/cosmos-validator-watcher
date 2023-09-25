@@ -16,6 +16,7 @@ type Metrics struct {
 	Tokens           *prometheus.GaugeVec
 	IsBonded         *prometheus.GaugeVec
 	IsJailed         *prometheus.GaugeVec
+	UpgradePlan      *prometheus.GaugeVec
 
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
@@ -136,6 +137,14 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "node"},
 		),
+		UpgradePlan: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "upgrade_plan",
+				Help:      "Set to 1 if chain has an upgrade plan",
+			},
+			[]string{"chain_id"},
+		),
 	}
 
 	return metrics
@@ -156,4 +165,5 @@ func (m *Metrics) Register() {
 	prometheus.MustRegister(m.IsJailed)
 	prometheus.MustRegister(m.NodeBlockHeight)
 	prometheus.MustRegister(m.NodeSynced)
+	prometheus.MustRegister(m.UpgradePlan)
 }

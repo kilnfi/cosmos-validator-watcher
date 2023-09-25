@@ -32,6 +32,7 @@ func RunFunc(cCtx *cli.Context) error {
 		noColor    = cCtx.Bool("no-color")
 		nodes      = cCtx.StringSlice("node")
 		noStaking  = cCtx.Bool("no-staking")
+		noUpgrade  = cCtx.Bool("no-upgrade")
 		validators = cCtx.StringSlice("validator")
 	)
 
@@ -125,6 +126,12 @@ func RunFunc(cCtx *cli.Context) error {
 		validatorsWatcher := watcher.NewValidatorsWatcher(trackedValidators, metrics, pool)
 		errg.Go(func() error {
 			return validatorsWatcher.Start(ctx)
+		})
+	}
+	if !noUpgrade {
+		upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool)
+		errg.Go(func() error {
+			return upgradeWatcher.Start(ctx)
 		})
 	}
 
