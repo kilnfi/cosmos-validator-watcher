@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/rpc/client/http"
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
@@ -41,18 +45,7 @@ func RunFunc(cCtx *cli.Context) error {
 	// Logger setup
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	switch logLevel {
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	default:
-		return fmt.Errorf("invalid log level: %s", logLevel)
-	}
+	zerolog.SetGlobalLevel(logLevelFromString(logLevel))
 
 	// Disable colored output if requested
 	color.NoColor = noColor
@@ -64,12 +57,16 @@ func RunFunc(cCtx *cli.Context) error {
 	// Create errgroup to manage all goroutines
 	errg, ctx := errgroup.WithContext(ctx)
 
+	// Test connection to nodes
+	pool, err := createNodePool(ctx, nodes)
+	if err != nil {
+		return err
+	}
+
 	// Parse validators into name & address
-	trackedValidators := lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
-		return watcher.ParseValidator(v)
-	})
-	for _, v := range trackedValidators {
-		log.Info().Str("alias", v.Name).Msgf("tracking validator %s", v.Address)
+	trackedValidators, err := createTrackedValidators(ctx, pool, validators, noStaking)
+	if err != nil {
+		return err
 	}
 
 	//
@@ -85,37 +82,9 @@ func RunFunc(cCtx *cli.Context) error {
 	errg.Go(func() error {
 		return statusWatcher.Start(ctx)
 	})
-
-	//
-	// Nodes
-	//
-	rpcNodes := make([]*rpc.Node, len(nodes))
-	for i, endpoint := range nodes {
-		client, err := http.New(endpoint, "/websocket")
-		if err != nil {
-			return fmt.Errorf("failed to create client: %w", err)
-		}
-		rpcNodes[i] = rpc.NewNode(
-			client,
-			rpc.WithOnStart(blockWatcher.OnNodeStart),
-			rpc.WithOnStatus(statusWatcher.OnNodeStatus),
-		)
-	}
-	pool := rpc.NewPool(rpcNodes)
-	errg.Go(func() error {
-		return pool.Start(ctx)
-	})
-
-	//
-	// Wait for connection
-	//
-	select {
-	case <-ctx.Done():
-		// cancelled before any nodes started
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("timed out waiting for connection to nodes")
-	case <-pool.Started():
-		// at least one node started
+	for _, node := range pool.Nodes {
+		node.OnStart(blockWatcher.OnNodeStart)
+		node.OnStatus(statusWatcher.OnNodeStatus)
 	}
 
 	//
@@ -127,6 +96,13 @@ func RunFunc(cCtx *cli.Context) error {
 			return validatorsWatcher.Start(ctx)
 		})
 	}
+
+	//
+	// Start Pool
+	//
+	errg.Go(func() error {
+		return pool.Start(ctx)
+	})
 
 	//
 	// HTTP server
@@ -167,4 +143,111 @@ func RunFunc(cCtx *cli.Context) error {
 
 	// Wait for all goroutines to finish
 	return errg.Wait()
+}
+
+func logLevelFromString(level string) zerolog.Level {
+	switch level {
+	case "debug":
+		return zerolog.DebugLevel
+	case "info":
+		return zerolog.InfoLevel
+	case "warn":
+		return zerolog.WarnLevel
+	case "error":
+		return zerolog.ErrorLevel
+	default:
+		return zerolog.InfoLevel
+	}
+}
+
+func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
+	rpcNodes := make([]*rpc.Node, len(nodes))
+	for i, endpoint := range nodes {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		client, err := http.New(endpoint, "/websocket")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create client: %w", err)
+		}
+
+		rpcNodes[i] = rpc.NewNode(client)
+
+		status, err := rpcNodes[i].Status(ctx)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to connect to %s", endpoint)
+			continue
+		}
+
+		chainID := status.NodeInfo.Network
+		blockHeight := status.SyncInfo.LatestBlockHeight
+
+		logger := log.With().Int64("height", blockHeight).Str("chainID", chainID).Logger()
+
+		if rpcNodes[i].IsSynced() {
+			logger.Info().Msgf("connected to %s", endpoint)
+		} else {
+			logger.Warn().Msgf("connected to %s (but node is catching up)", endpoint)
+		}
+	}
+
+	var rpcNode *rpc.Node
+	var chainID string
+	for _, node := range rpcNodes {
+		if chainID == "" {
+			chainID = node.ChainID()
+		} else if chainID != node.ChainID() && node.ChainID() != "" {
+			return nil, fmt.Errorf("nodes are on different chains: %s != %s", chainID, node.ChainID())
+		}
+		if node.IsSynced() {
+			rpcNode = node
+		}
+	}
+	if rpcNode == nil {
+		return nil, fmt.Errorf("no nodes synced")
+	}
+
+	return rpc.NewPool(chainID, rpcNodes), nil
+}
+
+func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []string, noStaking bool) ([]watcher.TrackedValidator, error) {
+	var stakingValidators []staking.Validator
+	if !noStaking {
+		node := pool.GetSyncedNode()
+		clientCtx := (client.Context{}).WithClient(node.Client)
+		queryClient := staking.NewQueryClient(clientCtx)
+
+		resp, err := queryClient.Validators(ctx, &staking.QueryValidatorsRequest{
+			Pagination: &query.PageRequest{
+				Limit: 3000,
+			},
+		})
+		if err != nil {
+			println(err.Error())
+			return nil, err
+		}
+		stakingValidators = resp.Validators
+	}
+
+	trackedValidators := lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
+		val := watcher.ParseValidator(v)
+
+		for _, stakingVal := range stakingValidators {
+			pubkey := ed25519.PubKey{Key: stakingVal.ConsensusPubkey.Value[2:]}
+			address := pubkey.Address().String()
+			if address == val.Address {
+				val.Moniker = stakingVal.Description.Moniker
+				val.OperatorAddress = stakingVal.OperatorAddress
+			}
+		}
+
+		log.Info().
+			Str("alias", val.Name).
+			Str("moniker", val.Moniker).
+			Msgf("tracking validator %s", val.Address)
+
+		return val
+	})
+
+	return trackedValidators, nil
 }

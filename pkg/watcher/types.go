@@ -3,8 +3,10 @@ package watcher
 import "strings"
 
 type TrackedValidator struct {
-	Address string
-	Name    string
+	Address         string
+	Name            string
+	Moniker         string
+	OperatorAddress string
 }
 
 func ParseValidator(val string) TrackedValidator {

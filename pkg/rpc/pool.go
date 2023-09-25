@@ -9,14 +9,16 @@ import (
 )
 
 type Pool struct {
-	Nodes []*Node
+	ChainID string
+	Nodes   []*Node
 
 	started     chan struct{}
 	startedOnce sync.Once
 }
 
-func NewPool(nodes []*Node) *Pool {
+func NewPool(chainID string, nodes []*Node) *Pool {
 	return &Pool{
+		ChainID:     chainID,
 		Nodes:       nodes,
 		started:     make(chan struct{}),
 		startedOnce: sync.Once{},
@@ -64,10 +66,6 @@ func (p *Pool) Stop(ctx context.Context) error {
 func (p *Pool) Started() chan struct{} {
 	return p.started
 }
-
-// func (n *Node) ChainID() string {
-// 	return n.chainID
-// }
 
 func (p *Pool) GetSyncedNode() *Node {
 	for _, node := range p.Nodes {
