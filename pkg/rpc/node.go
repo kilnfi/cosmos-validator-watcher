@@ -27,18 +27,6 @@ type OnNodeStatus func(ctx context.Context, n *Node, status *ctypes.ResultStatus
 
 type NodeOption func(*Node)
 
-func WithOnStart(onStart OnNodeStart) NodeOption {
-	return func(n *Node) {
-		n.onStart = append(n.onStart, onStart)
-	}
-}
-
-func WithOnStatus(onStatus OnNodeStatus) NodeOption {
-	return func(n *Node) {
-		n.onStatus = append(n.onStatus, onStatus)
-	}
-}
-
 type Node struct {
 	Client *http.HTTP
 
@@ -46,7 +34,7 @@ type Node struct {
 	onStatus []OnNodeStatus
 
 	chainID       string
-	isSynced      atomic.Bool
+	status        atomic.Value
 	started       chan struct{}
 	startedOnce   sync.Once
 	subscriptions map[string]<-chan ctypes.ResultEvent
@@ -55,7 +43,6 @@ type Node struct {
 func NewNode(client *http.HTTP, options ...NodeOption) *Node {
 	node := &Node{
 		Client:        client,
-		isSynced:      atomic.Bool{},
 		started:       make(chan struct{}),
 		startedOnce:   sync.Once{},
 		subscriptions: make(map[string]<-chan ctypes.ResultEvent),
@@ -68,6 +55,14 @@ func NewNode(client *http.HTTP, options ...NodeOption) *Node {
 	return node
 }
 
+func (n *Node) OnStart(callback OnNodeStart) {
+	n.onStart = append(n.onStart, callback)
+}
+
+func (n *Node) OnStatus(callback OnNodeStatus) {
+	n.onStatus = append(n.onStatus, callback)
+}
+
 func (n *Node) Started() chan struct{} {
 	return n.started
 }
@@ -77,7 +72,12 @@ func (n *Node) IsRunning() bool {
 }
 
 func (n *Node) IsSynced() bool {
-	return n.isSynced.Load()
+	status := n.loadStatus()
+	if status == nil {
+		return false
+	}
+
+	return !status.SyncInfo.CatchingUp
 }
 
 func (n *Node) ChainID() string {
@@ -89,18 +89,10 @@ func (n *Node) Start(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 
 	for {
-		retryOpts := []retry.Option{
-			retry.Context(ctx),
-			retry.Delay(1 * time.Second),
-			retry.Attempts(2),
-			// retry.OnRetry(func(_ uint, err error) {
-			// 	log.Warn().Err(err).Msgf("retrying status on %s", n.Client.Remote())
-			// }),
+		status, err := n.Status(ctx)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to get status of %s", n.Client.Remote())
 		}
-
-		status, err := retry.DoWithData(func() (*ctypes.ResultStatus, error) {
-			return n.Client.Status(ctx)
-		}, retryOpts...)
 
 		for _, onStatus := range n.onStatus {
 			if err := onStatus(ctx, n, status); err != nil {
@@ -108,20 +100,8 @@ func (n *Node) Start(ctx context.Context) {
 			}
 		}
 
-		if err != nil {
-			// Failed to get status, assume we're not synced
-			log.Error().Err(err).Msgf("failed to connect to %s", n.Client.Remote())
-			n.isSynced.Store(false)
-		} else if status.SyncInfo.CatchingUp {
-			// We're catching up, not synced
-			log.Warn().Msgf("node %s is catching up at block %d", n.Client.Remote(), status.SyncInfo.LatestBlockHeight)
-			n.isSynced.Store(false)
-		} else {
-			// We're synced, set the ready flag
-			n.isSynced.Store(true)
+		if status != nil && !status.SyncInfo.CatchingUp {
 			n.startedOnce.Do(func() {
-				n.chainID = status.NodeInfo.Network
-				log.Info().Int64("height", status.SyncInfo.LatestBlockHeight).Msgf("connected to node %s", n.Client.Remote())
 				if err := n.handleStart(ctx); err != nil {
 					log.Error().Err(err).Msgf("failed to start node")
 				}
@@ -135,6 +115,55 @@ func (n *Node) Start(ctx context.Context) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (n *Node) Status(ctx context.Context) (*ctypes.ResultStatus, error) {
+	status := n.loadStatus()
+
+	if status == nil || status.SyncInfo.LatestBlockTime.Before(time.Now().Add(-10*time.Second)) {
+		return n.syncStatus(ctx)
+	}
+
+	return status, nil
+}
+
+func (n *Node) loadStatus() *ctypes.ResultStatus {
+	status := n.status.Load()
+	if status == nil {
+		return nil
+	}
+	return status.(*ctypes.ResultStatus)
+}
+
+func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
+	retryOpts := []retry.Option{
+		retry.Context(ctx),
+		retry.Delay(1 * time.Second),
+		retry.Attempts(2),
+		// retry.OnRetry(func(_ uint, err error) {
+		// 	log.Warn().Err(err).Msgf("retrying status on %s", n.Client.Remote())
+		// }),
+	}
+
+	status, err := retry.DoWithData(func() (*ctypes.ResultStatus, error) {
+		return n.Client.Status(ctx)
+	}, retryOpts...)
+
+	n.status.Store(status)
+
+	if err != nil {
+		return status, fmt.Errorf("failed to get status of %s: %w", n.Client.Remote(), err)
+	}
+
+	if status.SyncInfo.CatchingUp {
+		// We're catching up, not synced
+		log.Warn().Msgf("node %s is catching up at block %d", n.Client.Remote(), status.SyncInfo.LatestBlockHeight)
+		return status, nil
+	}
+
+	n.chainID = status.NodeInfo.Network
+
+	return status, nil
 }
 
 func (n *Node) handleStart(ctx context.Context) error {
