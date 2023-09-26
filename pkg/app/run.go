@@ -96,6 +96,10 @@ func RunFunc(cCtx *cli.Context) error {
 			return validatorsWatcher.Start(ctx)
 		})
 	}
+	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool)
+	errg.Go(func() error {
+		return upgradeWatcher.Start(ctx)
+	})
 
 	//
 	// Start Pool
