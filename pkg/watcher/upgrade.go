@@ -2,7 +2,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -25,7 +24,7 @@ func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool) *UpgradeWatcher
 }
 
 func (w *UpgradeWatcher) Start(ctx context.Context) error {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Minute)
 
 	for {
 		node := w.pool.GetSyncedNode()
@@ -52,7 +51,6 @@ func (w *UpgradeWatcher) fetchUpgrade(ctx context.Context, node *rpc.Node) error
 		return err
 	}
 
-	fmt.Printf("%+v\n", resp.Plan)
 	w.handleUpgradePlan(node.ChainID(), resp.Plan)
 
 	return nil

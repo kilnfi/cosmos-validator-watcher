@@ -35,6 +35,7 @@ func RunFunc(cCtx *cli.Context) error {
 		namespace  = cCtx.String("namespace")
 		noColor    = cCtx.Bool("no-color")
 		nodes      = cCtx.StringSlice("node")
+		noGov      = cCtx.Bool("no-gov")
 		noStaking  = cCtx.Bool("no-staking")
 		validators = cCtx.StringSlice("validator")
 	)
@@ -94,6 +95,12 @@ func RunFunc(cCtx *cli.Context) error {
 		validatorsWatcher := watcher.NewValidatorsWatcher(trackedValidators, metrics, pool)
 		errg.Go(func() error {
 			return validatorsWatcher.Start(ctx)
+		})
+	}
+	if !noGov {
+		votesWatcher := watcher.NewVotesWatcher(trackedValidators, metrics, pool)
+		errg.Go(func() error {
+			return votesWatcher.Start(ctx)
 		})
 	}
 	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool)
@@ -227,7 +234,6 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 			},
 		})
 		if err != nil {
-			println(err.Error())
 			return nil, err
 		}
 		stakingValidators = resp.Validators
@@ -249,6 +255,14 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 			Str("alias", val.Name).
 			Str("moniker", val.Moniker).
 			Msgf("tracking validator %s", val.Address)
+
+		log.Debug().
+			Str("account", val.AccountAddress()).
+			Str("address", val.Address).
+			Str("alias", val.Name).
+			Str("moniker", val.Moniker).
+			Str("operator", val.OperatorAddress).
+			Msgf("validator info")
 
 		return val
 	})

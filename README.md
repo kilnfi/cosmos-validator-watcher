@@ -65,6 +65,7 @@ GLOBAL OPTIONS:
    --namespace value                        namespace for Prometheus metrics (default: "cosmos_validator_watcher")
    --no-color                               disable colored output (default: false)
    --node value [ --node value ]            rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
+   --no-gov                                 disable calls to gov module (useful for consumer chains) (default: false)
    --no-staking                             disable calls to staking module (useful for consumer chains) (default: false)
    --validator value [ --validator value ]  validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
    --help, -h                               show help
@@ -99,6 +100,7 @@ Metrics (without prefix)  | Description
 `tokens`                  | Number of staked tokens per validator
 `tracked_blocks`          | Number of blocks tracked since start
 `validated_blocks`        | Number of validated blocks per validator (for a bonded validator)
+`vote`                    | Set to 1 if the validator has voted on a proposal
 `upgrade_plan`            | Block height of the upcoming upgrade (hard fork)
 
 
