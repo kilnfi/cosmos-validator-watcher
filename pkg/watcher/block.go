@@ -108,9 +108,10 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, n *rpc.Node) error {
 
 	block, err := n.Client.Block(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get latest block: %w", err)
+		log.Warn().Err(err).Msg("failed to get latest block")
+	} else {
+		w.blockChan <- w.enchanceBlock(block.Block, validators)
 	}
-	w.blockChan <- w.enchanceBlock(block.Block, validators)
 
 	go func() {
 		for {
