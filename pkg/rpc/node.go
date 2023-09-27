@@ -22,6 +22,7 @@ const (
 	EventVote                = "Vote"
 )
 
+type OnNodeEvent func(ctx context.Context, n *Node, event *ctypes.ResultEvent) error
 type OnNodeStart func(ctx context.Context, n *Node) error
 type OnNodeStatus func(ctx context.Context, n *Node, status *ctypes.ResultStatus) error
 
@@ -32,6 +33,7 @@ type Node struct {
 
 	onStart  []OnNodeStart
 	onStatus []OnNodeStatus
+	onEvent  map[string][]OnNodeEvent
 
 	chainID       string
 	status        atomic.Value
@@ -46,6 +48,7 @@ func NewNode(client *http.HTTP, options ...NodeOption) *Node {
 		started:       make(chan struct{}),
 		startedOnce:   sync.Once{},
 		subscriptions: make(map[string]<-chan ctypes.ResultEvent),
+		onEvent:       make(map[string][]OnNodeEvent),
 	}
 
 	for _, opt := range options {
@@ -61,6 +64,10 @@ func (n *Node) OnStart(callback OnNodeStart) {
 
 func (n *Node) OnStatus(callback OnNodeStatus) {
 	n.onStatus = append(n.onStatus, callback)
+}
+
+func (n *Node) OnEvent(eventType string, callback OnNodeEvent) {
+	n.onEvent[eventType] = append(n.onEvent[eventType], callback)
 }
 
 func (n *Node) Started() chan struct{} {
@@ -84,35 +91,63 @@ func (n *Node) ChainID() string {
 	return n.chainID
 }
 
-func (n *Node) Start(ctx context.Context) {
-	// Start the status loop
-	ticker := time.NewTicker(30 * time.Second)
-
+func (n *Node) Start(ctx context.Context) error {
+	// Wait for the node to be ready
+	initTicker := time.NewTicker(30 * time.Second)
 	for {
-		status, err := n.Status(ctx)
+		status, err := n.syncStatus(ctx)
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to get status of %s", n.Client.Remote())
+			log.Error().Err(err).Msg("failed to sync status")
 		}
-
-		for _, onStatus := range n.onStatus {
-			if err := onStatus(ctx, n, status); err != nil {
-				log.Error().Err(err).Msgf("failed to call status callback")
-			}
-		}
-
 		if status != nil && !status.SyncInfo.CatchingUp {
-			n.startedOnce.Do(func() {
-				if err := n.handleStart(ctx); err != nil {
-					log.Error().Err(err).Msgf("failed to start node")
-				}
-			})
+			break
 		}
 
 		select {
 		case <-ctx.Done():
+			return nil
+		case <-initTicker.C:
+			continue
+		}
+	}
+
+	// Start the websocket process
+	if err := n.Client.Start(); err != nil {
+		return fmt.Errorf("failed to start client: %w", err)
+	}
+
+	blocksEvents, err := n.Subscribe(ctx, EventNewBlock)
+	if err != nil {
+		return fmt.Errorf("failed to get subscription: %w", err)
+	}
+
+	// Subscribe to validator set changes
+	validatorEvents, err := n.Subscribe(ctx, EventValidatorSetUpdates)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to events: %w", err)
+	}
+
+	// Call the start callbacks
+	n.startedOnce.Do(func() {
+		n.handleStart(ctx)
+	})
+
+	// Start the status loop
+	mainTicker := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
 			log.Debug().Err(ctx.Err()).Str("node", n.Client.Remote()).Msgf("stopping node status loop")
-			return
-		case <-ticker.C:
+			return nil
+
+		case evt := <-blocksEvents:
+			n.handleEvent(ctx, EventNewBlock, &evt)
+
+		case evt := <-validatorEvents:
+			n.handleEvent(ctx, EventValidatorSetUpdates, &evt)
+
+		case <-mainTicker.C:
+			n.syncStatus(ctx)
 		}
 	}
 }
@@ -163,24 +198,33 @@ func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 
 	n.chainID = status.NodeInfo.Network
 
+	for _, onStatus := range n.onStatus {
+		if err := onStatus(ctx, n, status); err != nil {
+			log.Error().Err(err).Msgf("failed to call status callback")
+		}
+	}
+
 	return status, nil
 }
 
-func (n *Node) handleStart(ctx context.Context) error {
-	// Start the websocket process
-	if err := n.Client.Start(); err != nil {
-		return fmt.Errorf("failed to start client: %w", err)
-	}
-
+func (n *Node) handleStart(ctx context.Context) {
 	for _, onStart := range n.onStart {
 		if err := onStart(ctx, n); err != nil {
-			return fmt.Errorf("failed to call start callback: %w", err)
+			log.Error().Err(err).Msgf("failed to call start node callback")
+			return
 		}
 	}
 
 	// Mark the node as ready
 	close(n.started)
-	return nil
+}
+
+func (n *Node) handleEvent(ctx context.Context, eventType string, event *ctypes.ResultEvent) {
+	for _, onEvent := range n.onEvent[eventType] {
+		if err := onEvent(ctx, n, event); err != nil {
+			log.Error().Err(err).Msgf("failed to call event callback")
+		}
+	}
 }
 
 func (n *Node) Stop(ctx context.Context) error {
