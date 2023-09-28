@@ -2,10 +2,14 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	"github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	upgrade "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	"github.com/gogo/protobuf/codec"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/rs/zerolog/log"
@@ -51,9 +55,50 @@ func (w *UpgradeWatcher) fetchUpgrade(ctx context.Context, node *rpc.Node) error
 		return err
 	}
 
-	w.handleUpgradePlan(node.ChainID(), resp.Plan)
+	plan := resp.Plan
+
+	if plan == nil {
+		plan, err = w.checkUpgradeProposals(ctx, node)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to check upgrade proposals")
+		}
+	}
+
+	w.handleUpgradePlan(node.ChainID(), plan)
 
 	return nil
+}
+
+func (w *UpgradeWatcher) checkUpgradeProposals(ctx context.Context, node *rpc.Node) (*upgrade.Plan, error) {
+	clientCtx := (client.Context{}).WithClient(node.Client)
+	queryClient := gov.NewQueryClient(clientCtx)
+
+	// Fetch all proposals in voting period
+	proposalsResp, err := queryClient.Proposals(ctx, &gov.QueryProposalsRequest{
+		ProposalStatus: gov.StatusVotingPeriod,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proposals: %w", err)
+	}
+
+	var plan *upgrade.Plan
+	for _, proposal := range proposalsResp.GetProposals() {
+		if proposal.Content == nil || proposal.Content.TypeUrl != "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal" {
+			continue
+		}
+
+		var upgrade types.SoftwareUpgradeProposal
+
+		cdc := codec.New(1)
+		err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+		}
+
+		plan = &upgrade.Plan
+	}
+
+	return plan, nil
 }
 
 func (w *UpgradeWatcher) handleUpgradePlan(chainID string, plan *upgrade.Plan) {
