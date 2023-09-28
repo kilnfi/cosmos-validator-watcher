@@ -59,8 +59,12 @@ func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error
 		return fmt.Errorf("failed to get proposals: %w", err)
 	}
 
+	chainID := node.ChainID()
+
 	// For each proposal, fetch validators vote
 	for _, proposal := range proposalsResp.GetProposals() {
+		w.metrics.ProposalEndTime.WithLabelValues(chainID, fmt.Sprintf("%d", proposal.ProposalId)).Set(float64(proposal.VotingEndTime.Unix()))
+
 		for _, validator := range w.validators {
 			voter := validator.AccountAddress()
 			if voter == "" {
@@ -72,12 +76,12 @@ func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error
 				Voter:      voter,
 			})
 			if isInvalidArgumentError(err) {
-				w.handleVote(node.ChainID(), validator, proposal.ProposalId, nil)
+				w.handleVote(chainID, validator, proposal.ProposalId, nil)
 			} else if err != nil {
 				return fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.ProposalId, err)
 			} else {
 				vote := voteResp.GetVote()
-				w.handleVote(node.ChainID(), validator, proposal.ProposalId, vote.Options)
+				w.handleVote(chainID, validator, proposal.ProposalId, vote.Options)
 			}
 		}
 	}

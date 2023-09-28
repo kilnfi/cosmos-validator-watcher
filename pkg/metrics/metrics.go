@@ -3,14 +3,14 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 type Metrics struct {
-
 	// Global metrics
-	ActiveSet     *prometheus.GaugeVec
-	BlockHeight   *prometheus.GaugeVec
-	SeatPrice     *prometheus.GaugeVec
-	UpgradePlan   *prometheus.GaugeVec
-	TrackedBlocks *prometheus.CounterVec
-	SkippedBlocks *prometheus.CounterVec
+	ActiveSet       *prometheus.GaugeVec
+	BlockHeight     *prometheus.GaugeVec
+	ProposalEndTime *prometheus.GaugeVec
+	SeatPrice       *prometheus.GaugeVec
+	SkippedBlocks   *prometheus.CounterVec
+	TrackedBlocks   *prometheus.CounterVec
+	UpgradePlan     *prometheus.GaugeVec
 
 	// Validator metrics
 	Rank             *prometheus.GaugeVec
@@ -157,6 +157,14 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "version"},
 		),
+		ProposalEndTime: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "proposal_end_time",
+				Help:      "Timestamp of the voting end time of a proposal",
+			},
+			[]string{"chain_id", "proposal_id"},
+		),
 	}
 
 	return metrics
@@ -179,4 +187,5 @@ func (m *Metrics) Register() {
 	prometheus.MustRegister(m.NodeBlockHeight)
 	prometheus.MustRegister(m.NodeSynced)
 	prometheus.MustRegister(m.UpgradePlan)
+	prometheus.MustRegister(m.ProposalEndTime)
 }
