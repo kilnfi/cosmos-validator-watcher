@@ -18,12 +18,18 @@ import (
 type UpgradeWatcher struct {
 	metrics *metrics.Metrics
 	pool    *rpc.Pool
+	options UpgradeWatcherOptions
 }
 
-func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool) *UpgradeWatcher {
+type UpgradeWatcherOptions struct {
+	CheckPendingProposals bool
+}
+
+func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool, options UpgradeWatcherOptions) *UpgradeWatcher {
 	return &UpgradeWatcher{
 		metrics: metrics,
 		pool:    pool,
+		options: options,
 	}
 }
 
@@ -57,7 +63,7 @@ func (w *UpgradeWatcher) fetchUpgrade(ctx context.Context, node *rpc.Node) error
 
 	plan := resp.Plan
 
-	if plan == nil {
+	if plan == nil && w.options.CheckPendingProposals {
 		plan, err = w.checkUpgradeProposals(ctx, node)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to check upgrade proposals")

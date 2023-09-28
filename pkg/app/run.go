@@ -105,7 +105,9 @@ func RunFunc(cCtx *cli.Context) error {
 			return votesWatcher.Start(ctx)
 		})
 	}
-	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool)
+	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, watcher.UpgradeWatcherOptions{
+		CheckPendingProposals: !noGov,
+	})
 	errg.Go(func() error {
 		return upgradeWatcher.Start(ctx)
 	})
