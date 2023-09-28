@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
+	"time"
 
-	"github.com/avast/retry-go/v4"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
@@ -15,63 +17,21 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type BlockInfo struct {
-	ChainID          string
-	Height           int64
-	TotalValidators  int
-	SignedValidators int
-	ValidatorStatus  []ValidatorStatus
-}
-
-func NewBlockInfo(block *types.Block) *BlockInfo {
-	// Compute total signed validators
-	signedValidators := 0
-	for _, sig := range block.LastCommit.Signatures {
-		if !sig.Absent() {
-			signedValidators++
-		}
-	}
-
-	return &BlockInfo{
-		ChainID:          block.Header.ChainID,
-		Height:           block.Header.Height - 1,
-		TotalValidators:  len(block.LastCommit.Signatures),
-		SignedValidators: signedValidators,
-		ValidatorStatus:  []ValidatorStatus{},
-	}
-}
-
-func (b *BlockInfo) SignedRatio() decimal.Decimal {
-	if b.TotalValidators == 0 {
-		return decimal.Zero
-	}
-
-	return decimal.NewFromInt(int64(b.SignedValidators)).
-		Div(decimal.NewFromInt(int64(b.TotalValidators)))
-}
-
-type ValidatorStatus struct {
-	Address string
-	Label   string
-	Bonded  bool
-	Signed  bool
-	Rank    int
-}
-
 type BlockWatcher struct {
-	writer            io.Writer
+	trackedValidators []TrackedValidator
 	metrics           *metrics.Metrics
-	validators        []TrackedValidator
-	blockChan         chan *types.Block
+	writer            io.Writer
+	blockChan         chan *BlockInfo
+	validatorSet      atomic.Value // []*types.Validator
 	latestBlockHeight int64
 }
 
 func NewBlockWatcher(validators []TrackedValidator, metrics *metrics.Metrics, writer io.Writer) *BlockWatcher {
 	return &BlockWatcher{
-		validators:        validators,
+		trackedValidators: validators,
 		metrics:           metrics,
 		writer:            writer,
-		blockChan:         make(chan *types.Block),
+		blockChan:         make(chan *BlockInfo),
 		latestBlockHeight: 0,
 	}
 }
@@ -82,52 +42,35 @@ func (w *BlockWatcher) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case block := <-w.blockChan:
-			w.handleBlock(block)
+			w.handleBlockInfo(block)
 		}
 	}
 }
 
-func (w *BlockWatcher) OnNodeStart(ctx context.Context, n *rpc.Node) error {
-	blocksEvents, err := n.Subscribe(ctx, rpc.EventNewBlock)
-	if err != nil {
-		return fmt.Errorf("failed to get subscription: %w", err)
+func (w *BlockWatcher) OnNodeStart(ctx context.Context, node *rpc.Node) error {
+	if err := w.syncValidatorSet(ctx, node); err != nil {
+		return fmt.Errorf("failed to sync validator set: %w", err)
 	}
 
-	// Subscribe to validator set changes
-	validatorEvents, err := n.Subscribe(ctx, rpc.EventValidatorSetUpdates)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to events: %w", err)
-	}
-
-	validators, err := retry.DoWithData(func() ([]*types.Validator, error) {
-		return w.fetchValidators(ctx, n)
-	}, retry.Attempts(2))
-	if err != nil {
-		return fmt.Errorf("failed to get active validator set: %w", err)
-	}
-
-	block, err := n.Client.Block(ctx, nil)
+	blockResp, err := node.Client.Block(ctx, nil)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to get latest block")
 	} else {
-		w.blockChan <- w.enchanceBlock(block.Block, validators)
+		w.handleNodeBlock(ctx, node, blockResp.Block)
 	}
+
+	// Ticker to sync validator set
+	ticker := time.NewTicker(time.Minute)
 
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debug().Err(ctx.Err()).Str("node", n.Client.Remote()).Msgf("stopping block watcher loop")
+				log.Debug().Err(ctx.Err()).Str("node", node.Client.Remote()).Msgf("stopping block watcher loop")
 				return
-			case evt := <-blocksEvents:
-				blockEvent := evt.Data.(types.EventDataNewBlock)
-				w.metrics.NodeBlockHeight.WithLabelValues(n.ChainID(), n.Client.Remote()).Set(float64(blockEvent.Block.Height))
-				w.blockChan <- w.enchanceBlock(blockEvent.Block, validators)
-			case evt := <-validatorEvents:
-				_ = evt.Data.(types.EventDataValidatorSetUpdates)
-				validators, err = w.fetchValidators(ctx, n)
-				if err != nil {
-					log.Warn().Err(err).Msg("failed to update active validator set")
+			case <-ticker.C:
+				if err := w.syncValidatorSet(ctx, node); err != nil {
+					log.Error().Err(err).Msg("failed to sync validator set")
 				}
 			}
 		}
@@ -136,30 +79,55 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, n *rpc.Node) error {
 	return nil
 }
 
-func (w *BlockWatcher) enchanceBlock(block *types.Block, validators []*types.Validator) *types.Block {
-	if len(validators) != block.LastCommit.Size() {
-		log.Warn().Msgf("validator set size mismatch: %d vs %d", len(validators), block.LastCommit.Size())
-		return block
+func (w *BlockWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ctypes.ResultEvent) error {
+	// Ignore blocks if node is catching up
+	if !node.IsSynced() {
+		return nil
 	}
 
-	signatures := make([]types.CommitSig, len(block.LastCommit.Signatures))
-	for i, sig := range block.LastCommit.Signatures {
-		if len(sig.ValidatorAddress) == 0 {
-			// Fill the validator address when it's empty (happens when validator miss the block)
-			sig.ValidatorAddress = validators[i].Address
-		} else if validators[i].Address.String() != sig.ValidatorAddress.String() {
-			// Check that the validator address is correct compared to the active set
-			log.Warn().Msgf("validator set mismatch pos %d: expected %s got %s", i, validators[i].Address, sig.ValidatorAddress.String())
-		}
-		signatures[i] = sig
-	}
+	blockEvent := evt.Data.(types.EventDataNewBlock)
+	block := blockEvent.Block
 
-	block.LastCommit.Signatures = signatures
+	w.handleNodeBlock(ctx, node, block)
 
-	return block
+	return nil
 }
 
-func (w *BlockWatcher) fetchValidators(ctx context.Context, n *rpc.Node) ([]*types.Validator, error) {
+func (w *BlockWatcher) OnValidatorSetUpdates(ctx context.Context, node *rpc.Node, evt *ctypes.ResultEvent) error {
+	// Ignore blocks if node is catching up
+	if !node.IsSynced() {
+		return nil
+	}
+
+	w.syncValidatorSet(ctx, node)
+
+	return nil
+}
+
+func (w *BlockWatcher) handleNodeBlock(ctx context.Context, node *rpc.Node, block *types.Block) {
+	validatorSet := w.getValidatorSet()
+
+	if len(validatorSet) != block.LastCommit.Size() {
+		log.Warn().Msgf("validator set size mismatch: %d vs %d", len(validatorSet), block.LastCommit.Size())
+	}
+
+	// Set node block height
+	w.metrics.NodeBlockHeight.WithLabelValues(node.ChainID(), node.Client.Remote()).Set(float64(block.Height))
+
+	// Extract block info
+	w.blockChan <- NewBlockInfo(block, w.computeValidatorStatus(block))
+}
+
+func (w *BlockWatcher) getValidatorSet() []*types.Validator {
+	validatorSet := w.validatorSet.Load()
+	if validatorSet == nil {
+		return nil
+	}
+
+	return validatorSet.([]*types.Validator)
+}
+
+func (w *BlockWatcher) syncValidatorSet(ctx context.Context, n *rpc.Node) error {
 	validators := make([]*types.Validator, 0)
 
 	for i := 0; i < 5; i++ {
@@ -170,7 +138,7 @@ func (w *BlockWatcher) fetchValidators(ctx context.Context, n *rpc.Node) ([]*typ
 
 		result, err := n.Client.Validators(ctx, nil, &page, &perPage)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get validators: %w", err)
+			return fmt.Errorf("failed to get validators: %w", err)
 		}
 		validators = append(validators, result.Validators...)
 
@@ -179,53 +147,78 @@ func (w *BlockWatcher) fetchValidators(ctx context.Context, n *rpc.Node) ([]*typ
 		}
 	}
 
-	return validators, nil
+	log.Debug().
+		Str("node", n.Client.Remote()).
+		Int("validators", len(validators)).
+		Msgf("validator set")
+
+	w.validatorSet.Store(validators)
+
+	return nil
 }
 
-func (w *BlockWatcher) handleBlock(block *types.Block) {
-	chainId := block.Header.ChainID
+func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
+	chainId := block.ChainID
 
-	if w.latestBlockHeight >= block.Header.Height {
+	if w.latestBlockHeight >= block.Height {
 		// Skip already processed blocks
 		return
 	}
 
 	// Ensure to inititalize counters for each validator
-	for _, val := range w.validators {
+	for _, val := range w.trackedValidators {
 		w.metrics.ValidatedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.MissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.SoloMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 	}
 	w.metrics.SkippedBlocks.WithLabelValues(chainId)
 
-	blockDiff := block.Header.Height - w.latestBlockHeight
+	blockDiff := block.Height - w.latestBlockHeight
 	if w.latestBlockHeight > 0 && blockDiff > 1 {
 		log.Warn().Msgf("skipped %d unknown blocks", blockDiff)
 		w.metrics.SkippedBlocks.WithLabelValues(chainId).Add(float64(blockDiff))
 	}
 
-	w.latestBlockHeight = block.Header.Height
-	w.metrics.BlockHeight.WithLabelValues(chainId).Set(float64(block.Header.Height))
-	w.metrics.ActiveSet.WithLabelValues(chainId).Set(float64(len(block.LastCommit.Signatures)))
+	w.latestBlockHeight = block.Height
+	w.metrics.BlockHeight.WithLabelValues(chainId).Set(float64(block.Height))
+	w.metrics.ActiveSet.WithLabelValues(chainId).Set(float64(block.TotalValidators))
 	w.metrics.TrackedBlocks.WithLabelValues(chainId).Inc()
 
-	info := NewBlockInfo(block)
-	info.ValidatorStatus = w.computeValidatorStatus(block)
+	// Print block result & update metrics
+	validatorStatus := []string{}
+	for _, res := range block.ValidatorStatus {
+		icon := "⚪️"
+		if res.Signed {
+			icon = "✅"
+			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+		} else if res.Bonded {
+			icon = "❌"
+			w.metrics.MissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 
-	w.handleBlockInfo(info)
+			// Check if solo missed block
+			if block.SignedRatio().GreaterThan(decimal.NewFromFloat(0.66)) {
+				w.metrics.SoloMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			}
+		}
+		validatorStatus = append(validatorStatus, fmt.Sprintf("%s %s", icon, res.Label))
+	}
+
+	fmt.Fprintln(
+		w.writer,
+		color.YellowString(fmt.Sprintf("#%d", block.Height-1)),
+		color.CyanString(fmt.Sprintf("%3d/%d validators", block.SignedValidators, block.TotalValidators)),
+		strings.Join(validatorStatus, " "),
+	)
 }
 
 func (w *BlockWatcher) computeValidatorStatus(block *types.Block) []ValidatorStatus {
 	validatorStatus := []ValidatorStatus{}
 
-	for _, val := range w.validators {
-		bonded := false
+	for _, val := range w.trackedValidators {
+		bonded := w.isValidatorActive(val.Address)
 		signed := false
 		rank := 0
 		for i, sig := range block.LastCommit.Signatures {
-			if sig.ValidatorAddress.String() == "" {
-				log.Warn().Msgf("empty validator address at pos %d", i)
-			}
 			if val.Address == sig.ValidatorAddress.String() {
 				bonded = true
 				signed = !sig.Absent()
@@ -247,30 +240,11 @@ func (w *BlockWatcher) computeValidatorStatus(block *types.Block) []ValidatorSta
 	return validatorStatus
 }
 
-func (w *BlockWatcher) handleBlockInfo(result *BlockInfo) {
-	// Print block result & update metrics
-	validatorStatus := []string{}
-	for _, res := range result.ValidatorStatus {
-		icon := "⚪️"
-		if res.Signed {
-			icon = "✅"
-			w.metrics.ValidatedBlocks.WithLabelValues(result.ChainID, res.Address, res.Label).Inc()
-		} else if res.Bonded {
-			icon = "❌"
-			w.metrics.MissedBlocks.WithLabelValues(result.ChainID, res.Address, res.Label).Inc()
-
-			// Check if solo missed block
-			if result.SignedRatio().GreaterThan(decimal.NewFromFloat(0.66)) {
-				w.metrics.SoloMissedBlocks.WithLabelValues(result.ChainID, res.Address, res.Label).Inc()
-			}
+func (w *BlockWatcher) isValidatorActive(address string) bool {
+	for _, val := range w.getValidatorSet() {
+		if val.Address.String() == address {
+			return true
 		}
-		validatorStatus = append(validatorStatus, fmt.Sprintf("%s %s", icon, res.Label))
 	}
-
-	fmt.Fprintln(
-		w.writer,
-		color.YellowString(fmt.Sprintf("#%d", result.Height)),
-		color.CyanString(fmt.Sprintf("%3d/%d validators", result.SignedValidators, result.TotalValidators)),
-		strings.Join(validatorStatus, " "),
-	)
+	return false
 }

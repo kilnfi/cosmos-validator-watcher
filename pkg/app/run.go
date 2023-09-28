@@ -83,9 +83,11 @@ func RunFunc(cCtx *cli.Context) error {
 	errg.Go(func() error {
 		return statusWatcher.Start(ctx)
 	})
+	// Register watchers on nodes events
 	for _, node := range pool.Nodes {
 		node.OnStart(blockWatcher.OnNodeStart)
 		node.OnStatus(statusWatcher.OnNodeStatus)
+		node.OnEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
 	}
 
 	//

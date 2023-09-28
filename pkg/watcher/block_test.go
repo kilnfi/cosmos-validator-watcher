@@ -2,11 +2,9 @@ package watcher
 
 import (
 	"bytes"
-	"encoding/hex"
 	"strings"
 	"testing"
 
-	"github.com/cometbft/cometbft/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"gotest.tools/assert"
@@ -17,8 +15,6 @@ func TestBlockWatcher(t *testing.T) {
 		kilnAddress = "3DC4DD610817606AD4A8F9D762A068A81E8741E2"
 		kilnName    = "Kiln"
 		chainID     = "chain-42"
-
-		miscAddress = "1234567890ABCDEF10817606AD4A8FD7620A81E4"
 	)
 
 	blockWatcher := NewBlockWatcher(
@@ -32,72 +28,72 @@ func TestBlockWatcher(t *testing.T) {
 		&bytes.Buffer{},
 	)
 
-	MustParseAddress := func(address string) []byte {
-		addr, err := hex.DecodeString(address)
-		if err != nil {
-			panic(err)
-		}
-		return addr
-	}
-
-	t.Run("Handle Blocks", func(t *testing.T) {
-		blocks := []*types.Block{
+	t.Run("Handle BlockInfo", func(t *testing.T) {
+		blocks := []BlockInfo{
 			{
-				Header: types.Header{ChainID: chainID, Height: 36},
-				LastCommit: &types.Commit{
-					Signatures: []types.CommitSig{
-						{
-							BlockIDFlag:      types.BlockIDFlagAbsent,
-							ValidatorAddress: MustParseAddress("1234567890ABCDEF10817606AD4A8FD7620A81E4"),
-						},
+				ChainID:          chainID,
+				Height:           36,
+				TotalValidators:  1,
+				SignedValidators: 0,
+				ValidatorStatus: []ValidatorStatus{
+					{
+						Address: kilnAddress,
+						Label:   kilnName,
+						Bonded:  false,
+						Signed:  false,
+						Rank:    0,
 					},
 				},
 			},
 			{
-				Header: types.Header{ChainID: chainID, Height: 41},
-				LastCommit: &types.Commit{
-					Signatures: []types.CommitSig{
-						{
-							BlockIDFlag:      types.BlockIDFlagAbsent,
-							ValidatorAddress: MustParseAddress(kilnAddress),
-						},
+				ChainID:          chainID,
+				Height:           41,
+				TotalValidators:  1,
+				SignedValidators: 0,
+				ValidatorStatus: []ValidatorStatus{
+					{
+						Address: kilnAddress,
+						Label:   kilnName,
+						Bonded:  true,
+						Signed:  false,
+						Rank:    1,
 					},
 				},
 			},
 			{
-				Header: types.Header{ChainID: chainID, Height: 42},
-				LastCommit: &types.Commit{
-					Signatures: []types.CommitSig{
-						{
-							BlockIDFlag:      types.BlockIDFlagAbsent,
-							ValidatorAddress: MustParseAddress(miscAddress),
-						},
-						{
-							BlockIDFlag:      types.BlockIDFlagCommit,
-							ValidatorAddress: MustParseAddress(kilnAddress),
-						},
+				ChainID:          chainID,
+				Height:           42,
+				TotalValidators:  2,
+				SignedValidators: 1,
+				ValidatorStatus: []ValidatorStatus{
+					{
+						Address: kilnAddress,
+						Label:   kilnName,
+						Bonded:  true,
+						Signed:  true,
+						Rank:    2,
 					},
 				},
 			},
 			{
-				Header: types.Header{ChainID: chainID, Height: 43},
-				LastCommit: &types.Commit{
-					Signatures: []types.CommitSig{
-						{
-							BlockIDFlag:      types.BlockIDFlagCommit,
-							ValidatorAddress: MustParseAddress(miscAddress),
-						},
-						{
-							BlockIDFlag:      types.BlockIDFlagCommit,
-							ValidatorAddress: MustParseAddress(kilnAddress),
-						},
+				ChainID:          chainID,
+				Height:           43,
+				TotalValidators:  2,
+				SignedValidators: 2,
+				ValidatorStatus: []ValidatorStatus{
+					{
+						Address: kilnAddress,
+						Label:   kilnName,
+						Bonded:  true,
+						Signed:  true,
+						Rank:    2,
 					},
 				},
 			},
 		}
 
 		for _, block := range blocks {
-			blockWatcher.handleBlock(block)
+			blockWatcher.handleBlockInfo(&block)
 		}
 
 		assert.Equal(t,
