@@ -121,16 +121,16 @@ func RunFunc(cCtx *cli.Context) error {
 	// HTTP server
 	//
 	log.Info().Msgf("starting HTTP server on %s", httpAddr)
-	readyFn := func() bool {
-		// ready when at least one watcher is ready
-		for _, node := range pool.Nodes {
-			if node.IsSynced() {
-				return true
-			}
-		}
-		return false
+	readyProbe := func() bool {
+		// ready when at least one watcher is synced
+		return pool.GetSyncedNode() != nil
 	}
-	httpServer := NewHTTPServer(httpAddr, readyFn)
+	httpServer := NewHTTPServer(
+		httpAddr,
+		WithReadyProbe(readyProbe),
+		WithLiveProbe(upProbe),
+		WithMetrics(metrics.Registry),
+	)
 	errg.Go(func() error {
 		return httpServer.Run()
 	})

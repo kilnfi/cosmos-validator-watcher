@@ -3,6 +3,8 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 type Metrics struct {
+	Registry *prometheus.Registry
+
 	// Global metrics
 	ActiveSet       *prometheus.GaugeVec
 	BlockHeight     *prometheus.GaugeVec
@@ -29,6 +31,7 @@ type Metrics struct {
 
 func New(namespace string) *Metrics {
 	metrics := &Metrics{
+		Registry: prometheus.NewRegistry(),
 		BlockHeight: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -171,21 +174,21 @@ func New(namespace string) *Metrics {
 }
 
 func (m *Metrics) Register() {
-	prometheus.MustRegister(m.BlockHeight)
-	prometheus.MustRegister(m.ActiveSet)
-	prometheus.MustRegister(m.SeatPrice)
-	prometheus.MustRegister(m.Rank)
-	prometheus.MustRegister(m.ValidatedBlocks)
-	prometheus.MustRegister(m.MissedBlocks)
-	prometheus.MustRegister(m.SoloMissedBlocks)
-	prometheus.MustRegister(m.TrackedBlocks)
-	prometheus.MustRegister(m.SkippedBlocks)
-	prometheus.MustRegister(m.Tokens)
-	prometheus.MustRegister(m.IsBonded)
-	prometheus.MustRegister(m.IsJailed)
-	prometheus.MustRegister(m.Vote)
-	prometheus.MustRegister(m.NodeBlockHeight)
-	prometheus.MustRegister(m.NodeSynced)
-	prometheus.MustRegister(m.UpgradePlan)
-	prometheus.MustRegister(m.ProposalEndTime)
+	m.Registry.MustRegister(m.BlockHeight)
+	m.Registry.MustRegister(m.ActiveSet)
+	m.Registry.MustRegister(m.SeatPrice)
+	m.Registry.MustRegister(m.Rank)
+	m.Registry.MustRegister(m.ValidatedBlocks)
+	m.Registry.MustRegister(m.MissedBlocks)
+	m.Registry.MustRegister(m.SoloMissedBlocks)
+	m.Registry.MustRegister(m.TrackedBlocks)
+	m.Registry.MustRegister(m.SkippedBlocks)
+	m.Registry.MustRegister(m.Tokens)
+	m.Registry.MustRegister(m.IsBonded)
+	m.Registry.MustRegister(m.IsJailed)
+	m.Registry.MustRegister(m.Vote)
+	m.Registry.MustRegister(m.NodeBlockHeight)
+	m.Registry.MustRegister(m.NodeSynced)
+	m.Registry.MustRegister(m.UpgradePlan)
+	m.Registry.MustRegister(m.ProposalEndTime)
 }
