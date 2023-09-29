@@ -14,21 +14,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type VotesWatcher struct {
+type VotesV1Beta1Watcher struct {
 	metrics    *metrics.Metrics
 	validators []TrackedValidator
 	pool       *rpc.Pool
 }
 
-func NewVotesWatcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool) *VotesWatcher {
-	return &VotesWatcher{
+func NewVotesV1Beta1Watcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool) *VotesV1Beta1Watcher {
+	return &VotesV1Beta1Watcher{
 		metrics:    metrics,
 		validators: validators,
 		pool:       pool,
 	}
 }
 
-func (w *VotesWatcher) Start(ctx context.Context) error {
+func (w *VotesV1Beta1Watcher) Start(ctx context.Context) error {
 	ticker := time.NewTicker(1 * time.Minute)
 
 	for {
@@ -47,7 +47,7 @@ func (w *VotesWatcher) Start(ctx context.Context) error {
 	}
 }
 
-func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error {
+func (w *VotesV1Beta1Watcher) fetchProposals(ctx context.Context, node *rpc.Node) error {
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := gov.NewQueryClient(clientCtx)
 
@@ -89,7 +89,7 @@ func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error
 	return nil
 }
 
-func (w *VotesWatcher) handleVote(chainID string, validator TrackedValidator, proposalId uint64, votes []gov.WeightedVoteOption) {
+func (w *VotesV1Beta1Watcher) handleVote(chainID string, validator TrackedValidator, proposalId uint64, votes []gov.WeightedVoteOption) {
 	voted := false
 	for _, option := range votes {
 		if option.Option != gov.OptionEmpty {
