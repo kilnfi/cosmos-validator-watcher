@@ -87,24 +87,33 @@ func (w *UpgradeWatcher) checkUpgradeProposals(ctx context.Context, node *rpc.No
 		return nil, fmt.Errorf("failed to get proposals: %w", err)
 	}
 
-	var plan *upgrade.Plan
 	for _, proposal := range proposalsResp.GetProposals() {
-		if proposal.Content == nil || proposal.Content.TypeUrl != "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal" {
+		if proposal.Content == nil {
 			continue
 		}
 
-		var upgrade types.SoftwareUpgradeProposal
-
 		cdc := codec.New(1)
-		err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
-		}
 
-		plan = &upgrade.Plan
+		switch proposal.Content.TypeUrl {
+		case "/cosmos.upgrade.v1beta1.CancelSoftwareUpgradeProposal":
+			var upgrade types.SoftwareUpgradeProposal
+			err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+			}
+			return &upgrade.Plan, nil
+
+		case "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade":
+			var upgrade types.MsgSoftwareUpgrade
+			err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+			}
+			return &upgrade.Plan, nil
+		}
 	}
 
-	return plan, nil
+	return nil, nil
 }
 
 func (w *UpgradeWatcher) handleUpgradePlan(chainID string, plan *upgrade.Plan) {
