@@ -43,4 +43,9 @@ var Flags = []cli.Flag{
 		Name:  "validator",
 		Usage: "validator address(es) to track (use :my-label to add a custom label in metrics & ouput)",
 	},
+	&cli.StringFlag{
+		Name:  "x-gov",
+		Usage: "version of the gov module to use (v1|v1beta1)",
+		Value: "v1beta1",
+	},
 }

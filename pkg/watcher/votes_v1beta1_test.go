@@ -22,7 +22,7 @@ func TestVotesWatcher(t *testing.T) {
 		}
 	)
 
-	votesWatcher := NewVotesWatcher(
+	votesWatcher := NewVotesV1Beta1Watcher(
 		validators,
 		metrics.New("cosmos_validator_watcher"),
 		nil,

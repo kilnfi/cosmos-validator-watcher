@@ -38,6 +38,7 @@ func RunFunc(cCtx *cli.Context) error {
 		noGov      = cCtx.Bool("no-gov")
 		noStaking  = cCtx.Bool("no-staking")
 		validators = cCtx.StringSlice("validator")
+		xGov       = cCtx.String("x-gov")
 	)
 
 	//
@@ -100,10 +101,20 @@ func RunFunc(cCtx *cli.Context) error {
 		})
 	}
 	if !noGov {
-		votesWatcher := watcher.NewVotesWatcher(trackedValidators, metrics, pool)
-		errg.Go(func() error {
-			return votesWatcher.Start(ctx)
-		})
+		switch xGov {
+		case "v1beta1":
+			votesWatcher := watcher.NewVotesV1Beta1Watcher(trackedValidators, metrics, pool)
+			errg.Go(func() error {
+				return votesWatcher.Start(ctx)
+			})
+		case "v1":
+			votesWatcher := watcher.NewVotesV1Watcher(trackedValidators, metrics, pool)
+			errg.Go(func() error {
+				return votesWatcher.Start(ctx)
+			})
+		default:
+			log.Warn().Msgf("unknown gov module version: %s", xGov)
+		}
 	}
 	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, watcher.UpgradeWatcherOptions{
 		CheckPendingProposals: !noGov,
