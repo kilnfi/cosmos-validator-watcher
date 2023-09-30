@@ -95,7 +95,7 @@ func (w *UpgradeWatcher) checkUpgradeProposals(ctx context.Context, node *rpc.No
 		cdc := codec.New(1)
 
 		switch proposal.Content.TypeUrl {
-		case "/cosmos.upgrade.v1beta1.CancelSoftwareUpgradeProposal":
+		case "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal":
 			var upgrade types.SoftwareUpgradeProposal
 			err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
 			if err != nil {
