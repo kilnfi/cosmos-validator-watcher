@@ -1,6 +1,9 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+)
 
 type Metrics struct {
 	Registry *prometheus.Registry
@@ -174,6 +177,9 @@ func New(namespace string) *Metrics {
 }
 
 func (m *Metrics) Register() {
+	m.Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	m.Registry.MustRegister(collectors.NewGoCollector())
+
 	m.Registry.MustRegister(m.BlockHeight)
 	m.Registry.MustRegister(m.ActiveSet)
 	m.Registry.MustRegister(m.SeatPrice)
