@@ -24,7 +24,8 @@ type ValidatorsWatcher struct {
 }
 
 type ValidatorsWatcherOptions struct {
-	TokenExponent uint
+	Denom         string
+	DenomExponent uint
 }
 
 func NewValidatorsWatcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool, opts ValidatorsWatcherOptions) *ValidatorsWatcher {
@@ -77,18 +78,18 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 	// Sort validators by tokens & status (bonded, unbonded, jailed)
 	sort.Sort(RankedValidators(validators))
 
-	tokenExponent := w.opts.TokenExponent
-	if tokenExponent == 0 {
-		tokenExponent = 1
+	denomExponent := w.opts.DenomExponent
+	if denomExponent == 0 {
+		denomExponent = 1
 	}
 
 	seatPrice := decimal.Zero
 	for _, val := range validators {
-		tokens := decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(tokenExponent))
+		tokens := decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(denomExponent))
 		if val.Status == staking.Bonded && (seatPrice.IsZero() || seatPrice.GreaterThan(tokens)) {
 			seatPrice = tokens
 		}
-		w.metrics.SeatPrice.WithLabelValues(chainID).Set(seatPrice.InexactFloat64())
+		w.metrics.SeatPrice.WithLabelValues(chainID, w.opts.Denom).Set(seatPrice.InexactFloat64())
 	}
 
 	for _, tracked := range w.validators {
@@ -103,11 +104,11 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 					rank     = i + 1
 					isBonded = val.Status == staking.Bonded
 					isJailed = val.Jailed
-					tokens   = decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(tokenExponent))
+					tokens   = decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(denomExponent))
 				)
 
 				w.metrics.Rank.WithLabelValues(chainID, address, name).Set(float64(rank))
-				w.metrics.Tokens.WithLabelValues(chainID, address, name).Set(tokens.InexactFloat64())
+				w.metrics.Tokens.WithLabelValues(chainID, address, name, w.opts.Denom).Set(tokens.InexactFloat64())
 				w.metrics.IsBonded.WithLabelValues(chainID, address, name).Set(metrics.BoolToFloat64(isBonded))
 				w.metrics.IsJailed.WithLabelValues(chainID, address, name).Set(metrics.BoolToFloat64(isJailed))
 				break

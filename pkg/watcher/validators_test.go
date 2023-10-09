@@ -30,7 +30,8 @@ func TestValidatorsWatcher(t *testing.T) {
 		metrics.New("cosmos_validator_watcher"),
 		nil,
 		ValidatorsWatcherOptions{
-			TokenExponent: 6,
+			Denom:         "denom",
+			DenomExponent: 6,
 		},
 	)
 
@@ -79,7 +80,7 @@ func TestValidatorsWatcher(t *testing.T) {
 
 		validatorsWatcher.handleValidators(chainID, validators)
 
-		assert.Equal(t, float64(42), testutil.ToFloat64(validatorsWatcher.metrics.Tokens.WithLabelValues(chainID, kilnAddress, kilnName)))
+		assert.Equal(t, float64(42), testutil.ToFloat64(validatorsWatcher.metrics.Tokens.WithLabelValues(chainID, kilnAddress, kilnName, "denom")))
 		assert.Equal(t, float64(2), testutil.ToFloat64(validatorsWatcher.metrics.Rank.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(1), testutil.ToFloat64(validatorsWatcher.metrics.IsBonded.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(0), testutil.ToFloat64(validatorsWatcher.metrics.IsJailed.WithLabelValues(chainID, kilnAddress, kilnName)))
