@@ -10,6 +10,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/types"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,6 +38,7 @@ type Node struct {
 
 	chainID       string
 	status        atomic.Value
+	latestBlock   atomic.Value
 	started       chan struct{}
 	startedOnce   sync.Once
 	subscriptions map[string]<-chan ctypes.ResultEvent
@@ -110,6 +112,7 @@ func (n *Node) Start(ctx context.Context) error {
 			continue
 		}
 	}
+	initTicker.Stop()
 
 	// Start the websocket process
 	if err := n.Client.Start(); err != nil {
@@ -133,7 +136,8 @@ func (n *Node) Start(ctx context.Context) error {
 	})
 
 	// Start the status loop
-	mainTicker := time.NewTicker(30 * time.Second)
+	statusTicker := time.NewTicker(30 * time.Second)
+	blocksTicker := time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
@@ -141,12 +145,21 @@ func (n *Node) Start(ctx context.Context) error {
 			return nil
 
 		case evt := <-blocksEvents:
+			log.Debug().Str("node", n.Client.Remote()).Msg("got new block event")
+			n.saveLatestBlock(evt.Data.(types.EventDataNewBlock).Block)
 			n.handleEvent(ctx, EventNewBlock, &evt)
+			blocksTicker.Reset(10 * time.Second)
 
 		case evt := <-validatorEvents:
+			log.Debug().Str("node", n.Client.Remote()).Msg("got validator set update event")
 			n.handleEvent(ctx, EventValidatorSetUpdates, &evt)
 
-		case <-mainTicker.C:
+		case <-blocksTicker.C:
+			log.Debug().Str("node", n.Client.Remote()).Msg("syncing latest blocks")
+			n.syncBlocks(ctx)
+
+		case <-statusTicker.C:
+			log.Debug().Str("node", n.Client.Remote()).Msg("syncing status")
 			n.syncStatus(ctx)
 		}
 	}
@@ -225,6 +238,68 @@ func (n *Node) handleEvent(ctx context.Context, eventType string, event *ctypes.
 			log.Error().Err(err).Msgf("failed to call event callback")
 		}
 	}
+}
+
+func (n *Node) getLatestBlock() *types.Block {
+	block := n.latestBlock.Load()
+	if block == nil {
+		return nil
+	}
+	return block.(*types.Block)
+}
+
+func (n *Node) saveLatestBlock(block *types.Block) {
+	n.latestBlock.Store(block)
+}
+
+func (n *Node) syncBlocks(ctx context.Context) {
+	// Fetch latest block
+	currentBlockResp, err := n.Client.Block(ctx, nil)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to sync with latest block")
+		return
+	}
+
+	currentBlock := currentBlockResp.Block
+
+	// Check the latest known block height
+	latestBlockHeight := int64(0)
+	latestBlock := n.getLatestBlock()
+	if latestBlock != nil {
+		latestBlockHeight = latestBlock.Height
+	}
+
+	// Go back to a maximum of 20 blocks
+	if currentBlock.Height-latestBlockHeight > 20 {
+		latestBlockHeight = currentBlock.Height - 20
+	}
+
+	// Fetch all skipped blocks since latest known block
+	for height := latestBlockHeight + 1; height < currentBlock.Height; height++ {
+		blockResp, err := n.Client.Block(ctx, &height)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to sync with latest block")
+			continue
+		}
+
+		n.handleEvent(ctx, EventNewBlock, &ctypes.ResultEvent{
+			Query: "",
+			Data: types.EventDataNewBlock{
+				Block: blockResp.Block,
+			},
+			Events: make(map[string][]string),
+		})
+	}
+
+	n.handleEvent(ctx, EventNewBlock, &ctypes.ResultEvent{
+		Query: "",
+		Data: types.EventDataNewBlock{
+			Block: currentBlockResp.Block,
+		},
+		Events: make(map[string][]string),
+	})
+
+	n.saveLatestBlock(currentBlockResp.Block)
 }
 
 func (n *Node) Stop(ctx context.Context) error {
