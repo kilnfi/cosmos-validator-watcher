@@ -175,7 +175,7 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 
 	blockDiff := block.Height - w.latestBlockHeight
 	if w.latestBlockHeight > 0 && blockDiff > 1 {
-		log.Warn().Msgf("skipped %d unknown blocks", blockDiff)
+		log.Warn().Msgf("skipped %d unknown blocks", blockDiff-1)
 		w.metrics.SkippedBlocks.WithLabelValues(chainId).Add(float64(blockDiff))
 	}
 
