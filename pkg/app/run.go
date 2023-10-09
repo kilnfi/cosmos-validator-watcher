@@ -37,7 +37,8 @@ func RunFunc(cCtx *cli.Context) error {
 		nodes      = cCtx.StringSlice("node")
 		noGov      = cCtx.Bool("no-gov")
 		noStaking  = cCtx.Bool("no-staking")
-		tokenExpon = cCtx.Uint("token-exponent")
+		denom      = cCtx.String("denom")
+		denomExpon = cCtx.Uint("denom-exponent")
 		validators = cCtx.StringSlice("validator")
 		xGov       = cCtx.String("x-gov")
 	)
@@ -97,7 +98,8 @@ func RunFunc(cCtx *cli.Context) error {
 	//
 	if !noStaking {
 		validatorsWatcher := watcher.NewValidatorsWatcher(trackedValidators, metrics, pool, watcher.ValidatorsWatcherOptions{
-			TokenExponent: tokenExpon,
+			Denom:         denom,
+			DenomExponent: denomExpon,
 		})
 		errg.Go(func() error {
 			return validatorsWatcher.Start(ctx)

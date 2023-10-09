@@ -39,10 +39,13 @@ var Flags = []cli.Flag{
 		Name:  "no-staking",
 		Usage: "disable calls to staking module (useful for consumer chains)",
 	},
+	&cli.StringFlag{
+		Name:  "denom",
+		Usage: "denom used in metrics label (eg. atom or uatom)",
+	},
 	&cli.UintFlag{
-		Name:  "token-exponent",
-		Usage: "token exponent (ie. 6 for uatom)",
-		Value: 6,
+		Name:  "denom-exponent",
+		Usage: "denom exponent (eg. 6 for atom, 1 for uatom)",
 	},
 	&cli.StringSliceFlag{
 		Name:  "validator",

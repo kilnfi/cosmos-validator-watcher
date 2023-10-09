@@ -67,7 +67,10 @@ GLOBAL OPTIONS:
    --node value [ --node value ]            rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
    --no-gov                                 disable calls to gov module (useful for consumer chains) (default: false)
    --no-staking                             disable calls to staking module (useful for consumer chains) (default: false)
+   --denom value                            denom used in metrics label (eg. atom or uatom)
+   --denom-exponent value                   denom exponent (eg. 6 for atom, 1 for uatom) (default: 0)
    --validator value [ --validator value ]  validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
+   --x-gov value                            version of the gov module to use (v1|v1beta1) (default: "v1beta1")
    --help, -h                               show help
    --version, -v                            print the version
 ```

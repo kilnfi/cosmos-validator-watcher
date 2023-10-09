@@ -57,7 +57,7 @@ func New(namespace string) *Metrics {
 				Name:      "seat_price",
 				Help:      "Min seat price to be in the active set (ie. bonded tokens of the latest validator)",
 			},
-			[]string{"chain_id"},
+			[]string{"chain_id", "denom"},
 		),
 		Rank: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -113,7 +113,7 @@ func New(namespace string) *Metrics {
 				Name:      "tokens",
 				Help:      "Number of staked tokens per validator",
 			},
-			[]string{"chain_id", "address", "name"},
+			[]string{"chain_id", "address", "name", "denom"},
 		),
 		IsBonded: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
