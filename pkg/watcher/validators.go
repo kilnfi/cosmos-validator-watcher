@@ -20,13 +20,19 @@ type ValidatorsWatcher struct {
 	metrics    *metrics.Metrics
 	validators []TrackedValidator
 	pool       *rpc.Pool
+	opts       ValidatorsWatcherOptions
 }
 
-func NewValidatorsWatcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool) *ValidatorsWatcher {
+type ValidatorsWatcherOptions struct {
+	TokenExponent uint
+}
+
+func NewValidatorsWatcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool, opts ValidatorsWatcherOptions) *ValidatorsWatcher {
 	return &ValidatorsWatcher{
 		metrics:    metrics,
 		validators: validators,
 		pool:       pool,
+		opts:       opts,
 	}
 }
 
@@ -71,9 +77,14 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 	// Sort validators by tokens & status (bonded, unbonded, jailed)
 	sort.Sort(RankedValidators(validators))
 
+	tokenExponent := w.opts.TokenExponent
+	if tokenExponent == 0 {
+		tokenExponent = 1
+	}
+
 	seatPrice := decimal.Zero
 	for _, val := range validators {
-		tokens := decimal.NewFromBigInt(val.Tokens.BigInt(), -6)
+		tokens := decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(tokenExponent))
 		if val.Status == staking.Bonded && (seatPrice.IsZero() || seatPrice.GreaterThan(tokens)) {
 			seatPrice = tokens
 		}
@@ -92,7 +103,7 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 					rank     = i + 1
 					isBonded = val.Status == staking.Bonded
 					isJailed = val.Jailed
-					tokens   = decimal.NewFromBigInt(val.Tokens.BigInt(), -6)
+					tokens   = decimal.NewFromBigInt(val.Tokens.BigInt(), -int32(tokenExponent))
 				)
 
 				w.metrics.Rank.WithLabelValues(chainID, address, name).Set(float64(rank))

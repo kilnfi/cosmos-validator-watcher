@@ -29,6 +29,9 @@ func TestValidatorsWatcher(t *testing.T) {
 		},
 		metrics.New("cosmos_validator_watcher"),
 		nil,
+		ValidatorsWatcherOptions{
+			TokenExponent: 6,
+		},
 	)
 
 	t.Run("Handle Validators", func(t *testing.T) {
