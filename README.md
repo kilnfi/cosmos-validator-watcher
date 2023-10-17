@@ -5,16 +5,21 @@
 **Cosmos Validator Watcher** is a Prometheus exporter to help you monitor missed blocks on
 any cosmos-based blockchains in real-time.
 
-- Tracks for each block how many validators missed the signatures
-- Tracks the current active set and check which validator is **bonded** or **jailed**
-- Export all metrics (eg. missed blocks) on the `/metrics` endpoint
+Features:
 
+- Track when your validator **missed a block** (with solo option)
+- Check how many validators missed the signatures for each block
+- Track the current active set and check if your validator is **bonded** or **jailed**
+- Track the **staked amount** as well as the min seat price
+- Track **pending proposals** and check if your validator has voted (including proposal end time)
+- Expose **upgrade plan** to know when the next upgrade will happen (including pending proposals)
+- Trigger webhook when an upgrade happens (soon)
+
+![Cosmos Validator Watcher Screenshot](assets/cosmos-validator-watcher-screenshot.jpg)
 
 ## ✨ Usage
 
 Example for cosmoshub using 2 public RPC nodes and tracking 4 validators (with custom aliases).
-
-![Cosmos Validator Watcher Screenshot](assets/cosmos-validator-watcher-output.jpg)
 
 ### Via compiled binary
 
