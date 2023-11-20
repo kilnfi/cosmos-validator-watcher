@@ -13,7 +13,7 @@ Features:
 - Track the **staked amount** as well as the min seat price
 - Track **pending proposals** and check if your validator has voted (including proposal end time)
 - Expose **upgrade plan** to know when the next upgrade will happen (including pending proposals)
-- Trigger webhook when an upgrade happens (soon)
+- Trigger webhook when an upgrade happens
 
 ![Cosmos Validator Watcher Screenshot](assets/cosmos-validator-watcher-screenshot.jpg)
 
@@ -75,6 +75,7 @@ GLOBAL OPTIONS:
    --denom value                            denom used in metrics label (eg. atom or uatom)
    --denom-exponent value                   denom exponent (eg. 6 for atom, 1 for uatom) (default: 0)
    --validator value [ --validator value ]  validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
+   --webhook-url      value                 endpoint where to send upgrade webhooks
    --x-gov value                            version of the gov module to use (v1|v1beta1) (default: "v1beta1")
    --help, -h                               show help
    --version, -v                            print the version

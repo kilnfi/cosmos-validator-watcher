@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/watcher"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/webhook"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -40,6 +42,7 @@ func RunFunc(cCtx *cli.Context) error {
 		denom      = cCtx.String("denom")
 		denomExpon = cCtx.Uint("denom-exponent")
 		validators = cCtx.StringSlice("validator")
+		webhookURL = cCtx.String("webhook-url")
 		xGov       = cCtx.String("x-gov")
 	)
 
@@ -86,12 +89,6 @@ func RunFunc(cCtx *cli.Context) error {
 	errg.Go(func() error {
 		return statusWatcher.Start(ctx)
 	})
-	// Register watchers on nodes events
-	for _, node := range pool.Nodes {
-		node.OnStart(blockWatcher.OnNodeStart)
-		node.OnStatus(statusWatcher.OnNodeStatus)
-		node.OnEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
-	}
 
 	//
 	// Pool watchers
@@ -121,12 +118,30 @@ func RunFunc(cCtx *cli.Context) error {
 			log.Warn().Msgf("unknown gov module version: %s", xGov)
 		}
 	}
-	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, watcher.UpgradeWatcherOptions{
+	var wh *webhook.Webhook
+	if webhookURL != "" {
+		whURL, err := url.Parse(webhookURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse webhook endpoint: %w", err)
+		}
+		wh = webhook.New(*whURL)
+	}
+	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, wh, watcher.UpgradeWatcherOptions{
 		CheckPendingProposals: !noGov,
 	})
 	errg.Go(func() error {
 		return upgradeWatcher.Start(ctx)
 	})
+
+	//
+	// Register watchers on nodes events
+	//
+	for _, node := range pool.Nodes {
+		node.OnStart(blockWatcher.OnNodeStart)
+		node.OnStatus(statusWatcher.OnNodeStatus)
+		node.OnEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
+		node.OnEvent(rpc.EventNewBlock, upgradeWatcher.OnNewBlock)
+	}
 
 	//
 	// Start Pool

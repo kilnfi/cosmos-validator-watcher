@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/cosmos/cosmos-sdk/x/upgrade/types"
@@ -12,23 +14,30 @@ import (
 	"github.com/gogo/protobuf/codec"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/webhook"
 	"github.com/rs/zerolog/log"
 )
 
 type UpgradeWatcher struct {
 	metrics *metrics.Metrics
 	pool    *rpc.Pool
+	webhook *webhook.Webhook
 	options UpgradeWatcherOptions
+
+	nextUpgradePlan   *upgrade.Plan // known upgrade plan
+	latestBlockHeight int64         // latest block received
+	latestWebhookSent int64         // latest block for which webhook has been sent
 }
 
 type UpgradeWatcherOptions struct {
 	CheckPendingProposals bool
 }
 
-func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool, options UpgradeWatcherOptions) *UpgradeWatcher {
+func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool, webhook *webhook.Webhook, options UpgradeWatcherOptions) *UpgradeWatcher {
 	return &UpgradeWatcher{
 		metrics: metrics,
 		pool:    pool,
+		webhook: webhook,
 		options: options,
 	}
 }
@@ -49,6 +58,68 @@ func (w *UpgradeWatcher) Start(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 		}
+	}
+}
+
+func (w *UpgradeWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ctypes.ResultEvent) error {
+	// Ignore is webhook is not configured
+	if w.webhook == nil {
+		return nil
+	}
+
+	// Ignore if no upgrade plan
+	if w.nextUpgradePlan == nil {
+		return nil
+	}
+
+	// Ignore blocks if node is catching up
+	if !node.IsSynced() {
+		return nil
+	}
+
+	blockEvent := evt.Data.(comettypes.EventDataNewBlock)
+	block := blockEvent.Block
+
+	// Skip already processed blocks
+	if w.latestBlockHeight >= block.Height {
+		return nil
+	}
+
+	w.latestBlockHeight = block.Height
+
+	// Ignore if upgrade plan is for a future block
+	if block.Height < w.nextUpgradePlan.Height-1 {
+		return nil
+	}
+
+	// Ignore if webhook has already been sent
+	if w.latestWebhookSent >= w.nextUpgradePlan.Height {
+		return nil
+	}
+
+	// Upgrade plan is for this block
+	go w.triggerWebhook(ctx, node.ChainID(), *w.nextUpgradePlan)
+	w.nextUpgradePlan = nil
+	w.latestWebhookSent = w.nextUpgradePlan.Height
+
+	return nil
+}
+
+func (w *UpgradeWatcher) triggerWebhook(ctx context.Context, chainID string, plan upgrade.Plan) {
+	msg := struct {
+		Type    string `json:"type"`
+		Block   int64  `json:"block"`
+		ChainID string `json:"chain_id"`
+		Version string `json:"version"`
+	}{
+		Type:    "upgrade",
+		Block:   plan.Height,
+		ChainID: chainID,
+		Version: plan.Name,
+	}
+
+	if err := w.webhook.Send(ctx, msg); err != nil {
+		log.Error().Err(err).Msg("failed to send upgrade webhook")
 	}
 }
 
@@ -122,5 +193,6 @@ func (w *UpgradeWatcher) handleUpgradePlan(chainID string, plan *upgrade.Plan) {
 		return
 	}
 
+	w.nextUpgradePlan = plan
 	w.metrics.UpgradePlan.WithLabelValues(chainID, plan.Name).Set(float64(plan.Height))
 }

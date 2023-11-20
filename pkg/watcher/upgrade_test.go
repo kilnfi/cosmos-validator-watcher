@@ -15,6 +15,7 @@ func TestUpgradeWatcher(t *testing.T) {
 	watcher := NewUpgradeWatcher(
 		metrics.New("cosmos_validator_watcher"),
 		nil,
+		nil,
 		UpgradeWatcherOptions{},
 	)
 
