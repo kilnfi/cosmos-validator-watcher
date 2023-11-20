@@ -26,10 +26,16 @@ func NewPool(chainID string, nodes []*Node) *Pool {
 }
 
 func (p *Pool) Start(ctx context.Context) error {
+	errg, ctx := errgroup.WithContext(ctx)
 	for _, node := range p.Nodes {
 		node := node
 		// Start node
-		go node.Start(ctx)
+		errg.Go(func() error {
+			if err := node.Start(ctx); err != nil {
+				return fmt.Errorf("failed to start node %s: %w", node.Client.Remote(), err)
+			}
+			return nil
+		})
 
 		// Mark pool as started when the first node is started
 		go func() {
@@ -43,7 +49,7 @@ func (p *Pool) Start(ctx context.Context) error {
 			}
 		}()
 	}
-	return nil
+	return errg.Wait()
 }
 
 func (p *Pool) Stop(ctx context.Context) error {
