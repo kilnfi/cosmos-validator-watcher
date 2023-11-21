@@ -133,7 +133,11 @@ This app is using the [CometBFT library](https://github.com/cometbft/cometbft/) 
 Use `tendermint show-validator` to get the pubkey and `debug pubkey` to convert to hex format.
 
 ```bash
-gaiad debug pubkey "$(gaiad tendermint show-validator)" 2>&1 | grep "Address:" | awk '{print $2}'
+CLI_NAME=gaiad
+ADDRESS="$($CLI_NAME debug pubkey "$($CLI_NAME tendermint show-validator)" 2>&1 | grep "Address")"
+ADDRESS="${ADDRESS##* 0x}"
+ADDRESS="${ADDRESS##* }"
+echo "${ADDRESS^^}"
 ```
 
 (replace `gaiad` by the binary name or the desired chain, eg. `evmosd`, `strided`, `injectived`, …).
