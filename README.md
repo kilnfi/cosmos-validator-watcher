@@ -120,9 +120,13 @@ Metrics (without prefix)  | Description
 Any blockchains based on the cosmos-sdk should work:
 
 - cosmoshub
-- osmosis
-- injective
+- celestia
+- cronos
+- dydx
 - evmos
+- injective
+- kava
+- osmosis
 - persistence
 - ...
 
