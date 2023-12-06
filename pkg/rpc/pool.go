@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,7 +33,7 @@ func (p *Pool) Start(ctx context.Context) error {
 		// Start node
 		errg.Go(func() error {
 			if err := node.Start(ctx); err != nil {
-				return fmt.Errorf("failed to start node %s: %w", node.Client.Remote(), err)
+				log.Error().Err(err).Msg("node error")
 			}
 			return nil
 		})
