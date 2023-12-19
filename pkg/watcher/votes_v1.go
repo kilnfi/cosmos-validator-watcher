@@ -73,6 +73,8 @@ func (w *VotesV1Watcher) fetchProposals(ctx context.Context, node *rpc.Node) err
 				ProposalId: proposal.Id,
 				Voter:      voter,
 			})
+
+			w.metrics.Vote.Reset()
 			if isInvalidArgumentError(err) {
 				w.handleVote(chainID, validator, proposal.Id, nil)
 			} else if err != nil {
