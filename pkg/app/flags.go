@@ -52,6 +52,10 @@ var Flags = []cli.Flag{
 		Usage: "validator address(es) to track (use :my-label to add a custom label in metrics & ouput)",
 	},
 	&cli.StringFlag{
+		Name:  "webhook-url",
+		Usage: "endpoint where to send upgrade webhooks (experimental)",
+	},
+	&cli.StringFlag{
 		Name:  "x-gov",
 		Usage: "version of the gov module to use (v1|v1beta1)",
 		Value: "v1beta1",
