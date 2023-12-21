@@ -99,8 +99,8 @@ func (w *UpgradeWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ct
 
 	// Upgrade plan is for this block
 	go w.triggerWebhook(ctx, node.ChainID(), *w.nextUpgradePlan)
-	w.nextUpgradePlan = nil
 	w.latestWebhookSent = w.nextUpgradePlan.Height
+	w.nextUpgradePlan = nil
 
 	return nil
 }
