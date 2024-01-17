@@ -135,7 +135,7 @@ This app is using the [CometBFT library](https://github.com/cometbft/cometbft/) 
 
 ### How to get your validator pubkey address?
 
-Use `tendermint show-validator` to get the pubkey and `debug pubkey` to convert to hex format.
+**Option 1**: use `tendermint show-validator` to get the pubkey and `debug pubkey` to convert to hex format.
 
 ```bash
 CLI_NAME=gaiad
@@ -146,6 +146,18 @@ echo "${ADDRESS^^}"
 ```
 
 (replace `gaiad` by the binary name or the desired chain, eg. `evmosd`, `strided`, `injectived`, …).
+
+**Option 2**: use the `cosmos-validator-watcher debug consensus-key` sub command:
+
+```bash
+cosmos-validator-watcher debug validator \
+  --node https://cosmos-rpc.publicnode.com:443 \
+  cosmosvaloper1uxlf7mvr8nep3gm7udf2u9remms2jyjqvwdul2
+```
+
+Notes:
+- the `--node` flag must be placed before the validator address)
+- this doesns't work for consumer chains (neutron, stride) since they don't rely on the `staking` module
 
 
 ## 📃 License
