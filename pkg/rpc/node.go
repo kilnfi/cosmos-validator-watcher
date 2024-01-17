@@ -86,7 +86,8 @@ func (n *Node) IsSynced() bool {
 		return false
 	}
 
-	return !status.SyncInfo.CatchingUp
+	return !status.SyncInfo.CatchingUp &&
+		status.SyncInfo.LatestBlockTime.After(time.Now().Add(-120*time.Second))
 }
 
 func (n *Node) ChainID() string {
