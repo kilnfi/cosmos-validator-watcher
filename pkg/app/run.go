@@ -102,21 +102,17 @@ func RunFunc(cCtx *cli.Context) error {
 			return validatorsWatcher.Start(ctx)
 		})
 	}
+	if xGov != "v1beta1" && xGov != "v1" {
+		log.Warn().Msgf("unknown gov module version: %s (fallback to v1)", xGov)
+		xGov = "v1"
+	}
 	if !noGov {
-		switch xGov {
-		case "v1beta1":
-			votesWatcher := watcher.NewVotesV1Beta1Watcher(trackedValidators, metrics, pool)
-			errg.Go(func() error {
-				return votesWatcher.Start(ctx)
-			})
-		case "v1":
-			votesWatcher := watcher.NewVotesV1Watcher(trackedValidators, metrics, pool)
-			errg.Go(func() error {
-				return votesWatcher.Start(ctx)
-			})
-		default:
-			log.Warn().Msgf("unknown gov module version: %s", xGov)
-		}
+		votesWatcher := watcher.NewVotesWatcher(trackedValidators, metrics, pool, watcher.VotesWatcherOptions{
+			GovModuleVersion: xGov,
+		})
+		errg.Go(func() error {
+			return votesWatcher.Start(ctx)
+		})
 	}
 	var wh *webhook.Webhook
 	if webhookURL != "" {
@@ -128,6 +124,7 @@ func RunFunc(cCtx *cli.Context) error {
 	}
 	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, wh, watcher.UpgradeWatcherOptions{
 		CheckPendingProposals: !noGov,
+		GovModuleVersion:      xGov,
 	})
 	errg.Go(func() error {
 		return upgradeWatcher.Start(ctx)

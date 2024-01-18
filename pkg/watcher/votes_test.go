@@ -22,16 +22,19 @@ func TestVotesWatcher(t *testing.T) {
 		}
 	)
 
-	votesWatcher := NewVotesV1Beta1Watcher(
+	votesWatcher := NewVotesWatcher(
 		validators,
 		metrics.New("cosmos_validator_watcher"),
 		nil,
+		VotesWatcherOptions{
+			GovModuleVersion: "v1beta1",
+		},
 	)
 
 	t.Run("Handle Votes", func(t *testing.T) {
-		votesWatcher.handleVote(chainID, validators[0], 40, nil)
-		votesWatcher.handleVote(chainID, validators[0], 41, []gov.WeightedVoteOption{{Option: gov.OptionEmpty}})
-		votesWatcher.handleVote(chainID, validators[0], 42, []gov.WeightedVoteOption{{Option: gov.OptionYes}})
+		votesWatcher.handleVoteV1Beta1(chainID, validators[0], 40, nil)
+		votesWatcher.handleVoteV1Beta1(chainID, validators[0], 41, []gov.WeightedVoteOption{{Option: gov.OptionEmpty}})
+		votesWatcher.handleVoteV1Beta1(chainID, validators[0], 42, []gov.WeightedVoteOption{{Option: gov.OptionYes}})
 
 		assert.Equal(t, float64(0), testutil.ToFloat64(votesWatcher.metrics.Vote.WithLabelValues(chainID, kilnAddress, kilnName, "40")))
 		assert.Equal(t, float64(0), testutil.ToFloat64(votesWatcher.metrics.Vote.WithLabelValues(chainID, kilnAddress, kilnName, "41")))

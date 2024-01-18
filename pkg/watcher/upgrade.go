@@ -8,7 +8,9 @@ import (
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
-	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	govbeta "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	upgrade "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/gogo/protobuf/codec"
@@ -31,6 +33,7 @@ type UpgradeWatcher struct {
 
 type UpgradeWatcherOptions struct {
 	CheckPendingProposals bool
+	GovModuleVersion      string
 }
 
 func NewUpgradeWatcher(metrics *metrics.Metrics, pool *rpc.Pool, webhook *webhook.Webhook, options UpgradeWatcherOptions) *UpgradeWatcher {
@@ -135,7 +138,12 @@ func (w *UpgradeWatcher) fetchUpgrade(ctx context.Context, node *rpc.Node) error
 	plan := resp.Plan
 
 	if plan == nil && w.options.CheckPendingProposals {
-		plan, err = w.checkUpgradeProposals(ctx, node)
+		switch w.options.GovModuleVersion {
+		case "v1beta1":
+			plan, err = w.checkUpgradeProposalsV1Beta1(ctx, node)
+		default: // v1
+			plan, err = w.checkUpgradeProposalsV1(ctx, node)
+		}
 		if err != nil {
 			log.Error().Err(err).Msg("failed to check upgrade proposals")
 		}
@@ -146,7 +154,7 @@ func (w *UpgradeWatcher) fetchUpgrade(ctx context.Context, node *rpc.Node) error
 	return nil
 }
 
-func (w *UpgradeWatcher) checkUpgradeProposals(ctx context.Context, node *rpc.Node) (*upgrade.Plan, error) {
+func (w *UpgradeWatcher) checkUpgradeProposalsV1(ctx context.Context, node *rpc.Node) (*upgrade.Plan, error) {
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := gov.NewQueryClient(clientCtx)
 
@@ -159,29 +167,68 @@ func (w *UpgradeWatcher) checkUpgradeProposals(ctx context.Context, node *rpc.No
 	}
 
 	for _, proposal := range proposalsResp.GetProposals() {
-		if proposal.Content == nil {
-			continue
-		}
-
-		cdc := codec.New(1)
-
-		switch proposal.Content.TypeUrl {
-		case "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal":
-			var upgrade types.SoftwareUpgradeProposal
-			err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
+		for _, message := range proposal.Messages {
+			plan, err := extractUpgradePlan(message)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+				return nil, fmt.Errorf("failed to extract upgrade plan: %w", err)
 			}
-			return &upgrade.Plan, nil
-
-		case "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade":
-			var upgrade types.MsgSoftwareUpgrade
-			err := cdc.Unmarshal(proposal.Content.Value, &upgrade)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+			if plan != nil {
+				return plan, nil
 			}
-			return &upgrade.Plan, nil
 		}
+	}
+
+	return nil, nil
+}
+
+func (w *UpgradeWatcher) checkUpgradeProposalsV1Beta1(ctx context.Context, node *rpc.Node) (*upgrade.Plan, error) {
+	clientCtx := (client.Context{}).WithClient(node.Client)
+	queryClient := govbeta.NewQueryClient(clientCtx)
+
+	// Fetch all proposals in voting period
+	proposalsResp, err := queryClient.Proposals(ctx, &govbeta.QueryProposalsRequest{
+		ProposalStatus: govbeta.StatusVotingPeriod,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proposals: %w", err)
+	}
+
+	for _, proposal := range proposalsResp.GetProposals() {
+		plan, err := extractUpgradePlan(proposal.Content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract upgrade plan: %w", err)
+		}
+		if plan != nil {
+			return plan, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func extractUpgradePlan(content *codectypes.Any) (*upgrade.Plan, error) {
+	if content == nil {
+		return nil, nil
+	}
+
+	cdc := codec.New(1)
+
+	switch content.TypeUrl {
+	case "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal":
+		var upgrade types.SoftwareUpgradeProposal
+		err := cdc.Unmarshal(content.Value, &upgrade)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+		}
+		return &upgrade.Plan, nil
+
+	case "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade":
+		var upgrade types.MsgSoftwareUpgrade
+		err := cdc.Unmarshal(content.Value, &upgrade)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
+		}
+		return &upgrade.Plan, nil
 	}
 
 	return nil, nil
