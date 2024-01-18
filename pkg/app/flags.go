@@ -58,6 +58,6 @@ var Flags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  "x-gov",
 		Usage: "version of the gov module to use (v1|v1beta1)",
-		Value: "v1beta1",
+		Value: "v1",
 	},
 }
