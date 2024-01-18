@@ -261,6 +261,10 @@ func (n *Node) syncBlocks(ctx context.Context) {
 	}
 
 	currentBlock := currentBlockResp.Block
+	if currentBlock == nil {
+		log.Error().Err(err).Msgf("no block returned when requesting latest block")
+		return
+	}
 
 	// Check the latest known block height
 	latestBlockHeight := int64(0)
