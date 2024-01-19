@@ -74,9 +74,11 @@ GLOBAL OPTIONS:
    --no-staking                             disable calls to staking module (useful for consumer chains) (default: false)
    --denom value                            denom used in metrics label (eg. atom or uatom)
    --denom-exponent value                   denom exponent (eg. 6 for atom, 1 for uatom) (default: 0)
+   --start-timeout value                    timeout to wait on startup for one node to be ready (default: 10s)
+   --stop-timeout value                     timeout to wait on stop (default: 10s)
    --validator value [ --validator value ]  validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
-   --webhook-url      value                 endpoint where to send upgrade webhooks
-   --x-gov value                            version of the gov module to use (v1|v1beta1) (default: "v1beta1")
+   --webhook-url value                      endpoint where to send upgrade webhooks (experimental)
+   --x-gov value                            version of the gov module to use (v1|v1beta1) (default: "v1")
    --help, -h                               show help
    --version, -v                            print the version
 ```

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -31,19 +30,21 @@ func RunFunc(cCtx *cli.Context) error {
 		ctx = cCtx.Context
 
 		// Config flags
-		chainID    = cCtx.String("chain-id")
-		httpAddr   = cCtx.String("http-addr")
-		logLevel   = cCtx.String("log-level")
-		namespace  = cCtx.String("namespace")
-		noColor    = cCtx.Bool("no-color")
-		nodes      = cCtx.StringSlice("node")
-		noGov      = cCtx.Bool("no-gov")
-		noStaking  = cCtx.Bool("no-staking")
-		denom      = cCtx.String("denom")
-		denomExpon = cCtx.Uint("denom-exponent")
-		validators = cCtx.StringSlice("validator")
-		webhookURL = cCtx.String("webhook-url")
-		xGov       = cCtx.String("x-gov")
+		chainID      = cCtx.String("chain-id")
+		httpAddr     = cCtx.String("http-addr")
+		logLevel     = cCtx.String("log-level")
+		namespace    = cCtx.String("namespace")
+		noColor      = cCtx.Bool("no-color")
+		nodes        = cCtx.StringSlice("node")
+		noGov        = cCtx.Bool("no-gov")
+		noStaking    = cCtx.Bool("no-staking")
+		denom        = cCtx.String("denom")
+		denomExpon   = cCtx.Uint("denom-exponent")
+		startTimeout = cCtx.Duration("start-timeout")
+		stopTimeout  = cCtx.Duration("stop-timeout")
+		validators   = cCtx.StringSlice("validator")
+		webhookURL   = cCtx.String("webhook-url")
+		xGov         = cCtx.String("x-gov")
 	)
 
 	//
@@ -64,8 +65,12 @@ func RunFunc(cCtx *cli.Context) error {
 	// Create errgroup to manage all goroutines
 	errg, ctx := errgroup.WithContext(ctx)
 
+	// Timeout to wait for at least one node to be ready
+	startCtx, cancel := context.WithTimeout(ctx, startTimeout)
+	defer cancel()
+
 	// Test connection to nodes
-	pool, err := createNodePool(ctx, nodes)
+	pool, err := createNodePool(startCtx, nodes)
 	if err != nil {
 		return err
 	}
@@ -174,7 +179,7 @@ func RunFunc(cCtx *cli.Context) error {
 	//
 	// Stop all watchers and exporter
 	//
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), stopTimeout)
 	defer cancel()
 
 	if err := pool.Stop(ctx); err != nil {
@@ -206,9 +211,6 @@ func logLevelFromString(level string) zerolog.Level {
 func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 	rpcNodes := make([]*rpc.Node, len(nodes))
 	for i, endpoint := range nodes {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
 		client, err := http.New(endpoint, "/websocket")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client: %w", err)
