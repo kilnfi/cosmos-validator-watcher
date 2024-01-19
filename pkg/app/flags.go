@@ -1,6 +1,10 @@
 package app
 
-import "github.com/urfave/cli/v2"
+import (
+	"time"
+
+	"github.com/urfave/cli/v2"
+)
 
 var Flags = []cli.Flag{
 	&cli.StringFlag{
@@ -46,6 +50,16 @@ var Flags = []cli.Flag{
 	&cli.UintFlag{
 		Name:  "denom-exponent",
 		Usage: "denom exponent (eg. 6 for atom, 1 for uatom)",
+	},
+	&cli.DurationFlag{
+		Name:  "start-timeout",
+		Usage: "timeout to wait on startup for one node to be ready",
+		Value: 10 * time.Second,
+	},
+	&cli.DurationFlag{
+		Name:  "stop-timeout",
+		Usage: "timeout to wait on stop",
+		Value: 10 * time.Second,
 	},
 	&cli.StringSliceFlag{
 		Name:  "validator",
