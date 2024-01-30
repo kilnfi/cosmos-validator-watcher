@@ -42,7 +42,7 @@ func (w *VotesWatcher) Start(ctx context.Context) error {
 		node := w.pool.GetSyncedNode()
 		if node == nil {
 			log.Warn().Msg("no node available to fetch proposals")
-		} else if err := w.fetchProposalsV1(ctx, node); err != nil {
+		} else if err := w.fetchProposals(ctx, node); err != nil {
 			log.Error().Err(err).Msg("failed to fetch pending proposals")
 		}
 
@@ -55,6 +55,8 @@ func (w *VotesWatcher) Start(ctx context.Context) error {
 }
 
 func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error {
+	w.metrics.Vote.Reset()
+
 	switch w.options.GovModuleVersion {
 	case "v1beta1":
 		return w.fetchProposalsV1Beta1(ctx, node)
@@ -62,6 +64,7 @@ func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error
 		return w.fetchProposalsV1(ctx, node)
 	}
 }
+
 func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) error {
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := gov.NewQueryClient(clientCtx)
@@ -91,7 +94,6 @@ func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) err
 				Voter:      voter,
 			})
 
-			w.metrics.Vote.Reset()
 			if isInvalidArgumentError(err) {
 				w.handleVoteV1(chainID, validator, proposal.Id, nil)
 			} else if err != nil {
@@ -149,7 +151,6 @@ func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node
 				Voter:      voter,
 			})
 
-			w.metrics.Vote.Reset()
 			if isInvalidArgumentError(err) {
 				w.handleVoteV1Beta1(chainID, validator, proposal.ProposalId, nil)
 			} else if err != nil {
