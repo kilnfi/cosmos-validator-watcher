@@ -235,11 +235,11 @@ func extractUpgradePlan(content *codectypes.Any) (*upgrade.Plan, error) {
 }
 
 func (w *UpgradeWatcher) handleUpgradePlan(chainID string, plan *upgrade.Plan) {
+	w.nextUpgradePlan = plan
+
 	if plan == nil {
 		w.metrics.UpgradePlan.Reset()
-		return
+	} else {
+		w.metrics.UpgradePlan.WithLabelValues(chainID, plan.Name).Set(float64(plan.Height))
 	}
-
-	w.nextUpgradePlan = plan
-	w.metrics.UpgradePlan.WithLabelValues(chainID, plan.Name).Set(float64(plan.Height))
 }
