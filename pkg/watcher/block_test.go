@@ -33,6 +33,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           36,
+				Transactions:     4,
 				TotalValidators:  1,
 				SignedValidators: 0,
 				ValidatorStatus: []ValidatorStatus{
@@ -48,6 +49,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           41,
+				Transactions:     5,
 				TotalValidators:  1,
 				SignedValidators: 0,
 				ValidatorStatus: []ValidatorStatus{
@@ -63,6 +65,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           42,
+				Transactions:     6,
 				TotalValidators:  2,
 				SignedValidators: 1,
 				ValidatorStatus: []ValidatorStatus{
@@ -78,6 +81,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           43,
+				Transactions:     7,
 				TotalValidators:  2,
 				SignedValidators: 2,
 				ValidatorStatus: []ValidatorStatus{
@@ -107,6 +111,7 @@ func TestBlockWatcher(t *testing.T) {
 		)
 
 		assert.Equal(t, float64(43), testutil.ToFloat64(blockWatcher.metrics.BlockHeight.WithLabelValues(chainID)))
+		assert.Equal(t, float64(22), testutil.ToFloat64(blockWatcher.metrics.Transactions.WithLabelValues(chainID)))
 		assert.Equal(t, float64(2), testutil.ToFloat64(blockWatcher.metrics.ActiveSet.WithLabelValues(chainID)))
 		assert.Equal(t, float64(4), testutil.ToFloat64(blockWatcher.metrics.TrackedBlocks.WithLabelValues(chainID)))
 		assert.Equal(t, float64(5), testutil.ToFloat64(blockWatcher.metrics.SkippedBlocks.WithLabelValues(chainID)))

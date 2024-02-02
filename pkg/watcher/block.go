@@ -183,6 +183,7 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 	w.metrics.BlockHeight.WithLabelValues(chainId).Set(float64(block.Height))
 	w.metrics.ActiveSet.WithLabelValues(chainId).Set(float64(block.TotalValidators))
 	w.metrics.TrackedBlocks.WithLabelValues(chainId).Inc()
+	w.metrics.Transactions.WithLabelValues(chainId).Add(float64(block.Transactions))
 
 	// Print block result & update metrics
 	validatorStatus := []string{}

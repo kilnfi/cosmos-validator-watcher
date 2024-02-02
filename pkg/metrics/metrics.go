@@ -15,6 +15,7 @@ type Metrics struct {
 	SeatPrice       *prometheus.GaugeVec
 	SkippedBlocks   *prometheus.CounterVec
 	TrackedBlocks   *prometheus.CounterVec
+	Transactions    *prometheus.CounterVec
 	UpgradePlan     *prometheus.GaugeVec
 
 	// Validator metrics
@@ -96,6 +97,14 @@ func New(namespace string) *Metrics {
 				Namespace: namespace,
 				Name:      "tracked_blocks",
 				Help:      "Number of blocks tracked since start",
+			},
+			[]string{"chain_id"},
+		),
+		Transactions: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "transactions_total",
+				Help:      "Number of transactions since start",
 			},
 			[]string{"chain_id"},
 		),
@@ -188,6 +197,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.MissedBlocks)
 	m.Registry.MustRegister(m.SoloMissedBlocks)
 	m.Registry.MustRegister(m.TrackedBlocks)
+	m.Registry.MustRegister(m.Transactions)
 	m.Registry.MustRegister(m.SkippedBlocks)
 	m.Registry.MustRegister(m.Tokens)
 	m.Registry.MustRegister(m.IsBonded)
