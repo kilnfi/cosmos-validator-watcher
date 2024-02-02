@@ -34,8 +34,10 @@ func (t TrackedValidator) AccountAddress() string {
 		return err.Error()
 	}
 
-	newPrefix := strings.TrimSuffix(prefix, "valoper")
-	conv, err := bech32.ConvertAndEncode(newPrefix, bytes)
+	for _, v := range []string{"valoper", "cncl"} {
+		prefix = strings.TrimSuffix(prefix, v)
+	}
+	conv, err := bech32.ConvertAndEncode(prefix, bytes)
 	if err != nil {
 		return err.Error()
 	}
