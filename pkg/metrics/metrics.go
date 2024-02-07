@@ -25,6 +25,7 @@ type Metrics struct {
 	Tokens           *prometheus.GaugeVec
 	IsBonded         *prometheus.GaugeVec
 	IsJailed         *prometheus.GaugeVec
+	Commission       *prometheus.GaugeVec
 	Vote             *prometheus.GaugeVec
 
 	// Node metrics
@@ -131,6 +132,14 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "address", "name"},
 		),
+		Commission: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "commission",
+				Help:      "Earned validator commission",
+			},
+			[]string{"chain_id", "address", "name", "denom"},
+		),
 		Vote: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -191,6 +200,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.SkippedBlocks)
 	m.Registry.MustRegister(m.Tokens)
 	m.Registry.MustRegister(m.IsBonded)
+	m.Registry.MustRegister(m.Commission)
 	m.Registry.MustRegister(m.IsJailed)
 	m.Registry.MustRegister(m.Vote)
 	m.Registry.MustRegister(m.NodeBlockHeight)

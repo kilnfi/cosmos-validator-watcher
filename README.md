@@ -99,6 +99,7 @@ Metrics (without prefix)  | Description
 --------------------------|-------------------------------------------------------------------------
 `active_set`              | Number of validators in the active set
 `block_height`            | Latest known block height (all nodes mixed up)
+`commission`              | Earned validator commission
 `is_bonded`               | Set to 1 if the validator is bonded
 `is_jailed`               | Set to 1 if the validator is jailed
 `missed_blocks`           | Number of missed blocks per validator (for a bonded validator)
