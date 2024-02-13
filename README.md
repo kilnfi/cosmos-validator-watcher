@@ -131,6 +131,8 @@ Any blockchains based on the cosmos-sdk should work:
 - kava
 - osmosis
 - persistence
+- dymension
+- zetachain
 - ...
 
 This app is using the [CometBFT library](https://github.com/cometbft/cometbft/) (successor of Tendermint) as well as the `x/staking` module from the [Cosmos-SDK](https://github.com/cosmos/cosmos-sdk).
