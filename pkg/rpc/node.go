@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,9 @@ type NodeOption func(*Node)
 type Node struct {
 	Client *http.HTTP
 
+	// Save endpoint url for redacted logging
+	endpoint *url.URL
+
 	onStart  []OnNodeStart
 	onStatus []OnNodeStatus
 	onEvent  map[string][]OnNodeEvent
@@ -45,8 +49,11 @@ type Node struct {
 }
 
 func NewNode(client *http.HTTP, options ...NodeOption) *Node {
+	endpoint, _ := url.Parse(client.Remote())
+
 	node := &Node{
 		Client:        client,
+		endpoint:      endpoint,
 		started:       make(chan struct{}),
 		startedOnce:   sync.Once{},
 		subscriptions: make(map[string]<-chan ctypes.ResultEvent),
@@ -58,6 +65,24 @@ func NewNode(client *http.HTTP, options ...NodeOption) *Node {
 	}
 
 	return node
+}
+
+func (n *Node) Endpoint() string {
+	if n.endpoint == nil {
+		return n.Client.Remote()
+	}
+	ep := *n.endpoint
+	if _, has := ep.User.Password(); has {
+		ep.User = nil
+	}
+	return ep.String()
+}
+
+func (n *Node) Redacted() string {
+	if n.endpoint == nil {
+		return n.Client.Remote()
+	}
+	return n.endpoint.Redacted()
 }
 
 func (n *Node) OnStart(callback OnNodeStart) {
@@ -142,25 +167,25 @@ func (n *Node) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug().Err(ctx.Err()).Str("node", n.Client.Remote()).Msgf("stopping node status loop")
+			log.Debug().Err(ctx.Err()).Str("node", n.Redacted()).Msgf("stopping node status loop")
 			return nil
 
 		case evt := <-blocksEvents:
-			log.Debug().Str("node", n.Client.Remote()).Msg("got new block event")
+			log.Debug().Str("node", n.Redacted()).Msg("got new block event")
 			n.saveLatestBlock(evt.Data.(types.EventDataNewBlock).Block)
 			n.handleEvent(ctx, EventNewBlock, &evt)
 			blocksTicker.Reset(10 * time.Second)
 
 		case evt := <-validatorEvents:
-			log.Debug().Str("node", n.Client.Remote()).Msg("got validator set update event")
+			log.Debug().Str("node", n.Redacted()).Msg("got validator set update event")
 			n.handleEvent(ctx, EventValidatorSetUpdates, &evt)
 
 		case <-blocksTicker.C:
-			log.Debug().Str("node", n.Client.Remote()).Msg("syncing latest blocks")
+			log.Debug().Str("node", n.Redacted()).Msg("syncing latest blocks")
 			n.syncBlocks(ctx)
 
 		case <-statusTicker.C:
-			log.Debug().Str("node", n.Client.Remote()).Msg("syncing status")
+			log.Debug().Str("node", n.Redacted()).Msg("syncing status")
 			n.syncStatus(ctx)
 		}
 	}
@@ -190,7 +215,7 @@ func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 		retry.Delay(1 * time.Second),
 		retry.Attempts(2),
 		// retry.OnRetry(func(_ uint, err error) {
-		// 	log.Warn().Err(err).Msgf("retrying status on %s", n.Client.Remote())
+		// 	log.Warn().Err(err).Msgf("retrying status on %s", n.Redacted())
 		// }),
 	}
 
@@ -201,12 +226,12 @@ func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 	n.status.Store(status)
 
 	if err != nil {
-		return status, fmt.Errorf("failed to get status of %s: %w", n.Client.Remote(), err)
+		return status, fmt.Errorf("failed to get status of %s: %w", n.Redacted(), err)
 	}
 
 	if status.SyncInfo.CatchingUp {
 		// We're catching up, not synced
-		log.Warn().Msgf("node %s is catching up at block %d", n.Client.Remote(), status.SyncInfo.LatestBlockHeight)
+		log.Warn().Msgf("node %s is catching up at block %d", n.Redacted(), status.SyncInfo.LatestBlockHeight)
 		return status, nil
 	}
 

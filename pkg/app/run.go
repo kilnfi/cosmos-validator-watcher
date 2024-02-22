@@ -224,7 +224,7 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 
 		status, err := rpcNodes[i].Status(ctx)
 		if err != nil {
-			log.Error().Err(err).Msgf("failed to connect to %s", endpoint)
+			log.Error().Err(err).Msgf("failed to connect to %s", rpcNodes[i].Redacted())
 			continue
 		}
 
@@ -234,9 +234,9 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 		logger := log.With().Int64("height", blockHeight).Str("chainID", chainID).Logger()
 
 		if rpcNodes[i].IsSynced() {
-			logger.Info().Msgf("connected to %s", endpoint)
+			logger.Info().Msgf("connected to %s", rpcNodes[i].Redacted())
 		} else {
-			logger.Warn().Msgf("connected to %s (but node is catching up)", endpoint)
+			logger.Warn().Msgf("connected to %s (but node is catching up)", rpcNodes[i].Redacted())
 		}
 	}
 
