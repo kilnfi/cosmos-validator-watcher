@@ -112,6 +112,7 @@ Metrics (without prefix)  | Description
 `solo_missed_blocks`      | Number of missed blocks per validator, unless the block is missed by many other validators
 `tokens`                  | Number of staked tokens per validator
 `tracked_blocks`          | Number of blocks tracked since start
+`transactions`            | Number of transactions since start
 `validated_blocks`        | Number of validated blocks per validator (for a bonded validator)
 `vote`                    | Set to 1 if the validator has voted on a proposal
 `upgrade_plan`            | Block height of the upcoming upgrade (hard fork)

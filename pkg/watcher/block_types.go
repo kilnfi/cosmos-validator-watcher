@@ -8,6 +8,7 @@ import (
 type BlockInfo struct {
 	ChainID          string
 	Height           int64
+	Transactions     int
 	TotalValidators  int
 	SignedValidators int
 	ValidatorStatus  []ValidatorStatus
@@ -25,6 +26,7 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 	return &BlockInfo{
 		ChainID:          block.Header.ChainID,
 		Height:           block.Header.Height,
+		Transactions:     block.Txs.Len(),
 		TotalValidators:  len(block.LastCommit.Signatures),
 		SignedValidators: signedValidators,
 		ValidatorStatus:  validatorStatus,
