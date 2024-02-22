@@ -94,6 +94,10 @@ func RunFunc(cCtx *cli.Context) error {
 	errg.Go(func() error {
 		return statusWatcher.Start(ctx)
 	})
+	commissionWatcher := watcher.NewCommissionsWatcher(trackedValidators, metrics, pool)
+	errg.Go(func() error {
+		return commissionWatcher.Start(ctx)
+	})
 
 	//
 	// Pool watchers
