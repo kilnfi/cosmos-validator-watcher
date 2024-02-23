@@ -53,12 +53,12 @@ func (w *StatusWatcher) OnNodeStatus(ctx context.Context, n *rpc.Node, status *c
 	}
 
 	log.Debug().
-		Str("node", n.Client.Remote()).
+		Str("node", n.Redacted()).
 		Int64("height", blockHeight).
 		Bool("synced", synced).
 		Msgf("node status")
 
-	w.metrics.NodeSynced.WithLabelValues(chainID, n.Client.Remote()).Set(
+	w.metrics.NodeSynced.WithLabelValues(chainID, n.Endpoint()).Set(
 		metrics.BoolToFloat64(synced),
 	)
 

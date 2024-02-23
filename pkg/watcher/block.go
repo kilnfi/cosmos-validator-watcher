@@ -66,7 +66,7 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, node *rpc.Node) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debug().Err(ctx.Err()).Str("node", node.Client.Remote()).Msgf("stopping block watcher loop")
+				log.Debug().Err(ctx.Err()).Str("node", node.Redacted()).Msgf("stopping block watcher loop")
 				return
 			case <-ticker.C:
 				if err := w.syncValidatorSet(ctx, node); err != nil {
@@ -112,7 +112,7 @@ func (w *BlockWatcher) handleNodeBlock(ctx context.Context, node *rpc.Node, bloc
 	}
 
 	// Set node block height
-	w.metrics.NodeBlockHeight.WithLabelValues(node.ChainID(), node.Client.Remote()).Set(float64(block.Height))
+	w.metrics.NodeBlockHeight.WithLabelValues(node.ChainID(), node.Endpoint()).Set(float64(block.Height))
 
 	// Extract block info
 	w.blockChan <- NewBlockInfo(block, w.computeValidatorStatus(block))
@@ -148,7 +148,7 @@ func (w *BlockWatcher) syncValidatorSet(ctx context.Context, n *rpc.Node) error 
 	}
 
 	log.Debug().
-		Str("node", n.Client.Remote()).
+		Str("node", n.Redacted()).
 		Int("validators", len(validators)).
 		Msgf("validator set")
 
