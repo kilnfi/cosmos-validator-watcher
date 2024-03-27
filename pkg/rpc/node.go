@@ -120,6 +120,8 @@ func (n *Node) ChainID() string {
 }
 
 func (n *Node) Start(ctx context.Context) error {
+	log := log.With().Str("node", n.Redacted()).Logger()
+
 	// Wait for the node to be ready
 	initTicker := time.NewTicker(30 * time.Second)
 	for {
@@ -167,25 +169,25 @@ func (n *Node) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug().Err(ctx.Err()).Str("node", n.Redacted()).Msgf("stopping node status loop")
+			log.Debug().Err(ctx.Err()).Msgf("stopping node status loop")
 			return nil
 
 		case evt := <-blocksEvents:
-			log.Debug().Str("node", n.Redacted()).Msg("got new block event")
+			log.Debug().Msg("got new block event")
 			n.saveLatestBlock(evt.Data.(types.EventDataNewBlock).Block)
 			n.handleEvent(ctx, EventNewBlock, &evt)
 			blocksTicker.Reset(10 * time.Second)
 
 		case evt := <-validatorEvents:
-			log.Debug().Str("node", n.Redacted()).Msg("got validator set update event")
+			log.Debug().Msg("got validator set update event")
 			n.handleEvent(ctx, EventValidatorSetUpdates, &evt)
 
 		case <-blocksTicker.C:
-			log.Debug().Str("node", n.Redacted()).Msg("syncing latest blocks")
+			log.Debug().Msg("syncing latest blocks")
 			n.syncBlocks(ctx)
 
 		case <-statusTicker.C:
-			log.Debug().Str("node", n.Redacted()).Msg("syncing status")
+			log.Debug().Msg("syncing status")
 			n.syncStatus(ctx)
 		}
 	}
