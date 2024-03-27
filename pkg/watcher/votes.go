@@ -43,7 +43,9 @@ func (w *VotesWatcher) Start(ctx context.Context) error {
 		if node == nil {
 			log.Warn().Msg("no node available to fetch proposals")
 		} else if err := w.fetchProposals(ctx, node); err != nil {
-			log.Error().Err(err).Msg("failed to fetch pending proposals")
+			log.Error().Err(err).
+				Str("node", node.Redacted()).
+				Msg("failed to fetch pending proposals")
 		}
 
 		select {
@@ -55,17 +57,37 @@ func (w *VotesWatcher) Start(ctx context.Context) error {
 }
 
 func (w *VotesWatcher) fetchProposals(ctx context.Context, node *rpc.Node) error {
-	w.metrics.Vote.Reset()
+	var (
+		votes map[uint64]map[TrackedValidator]bool
+		err   error
+	)
 
 	switch w.options.GovModuleVersion {
 	case "v1beta1":
-		return w.fetchProposalsV1Beta1(ctx, node)
+		votes, err = w.fetchProposalsV1Beta1(ctx, node)
 	default: // v1
-		return w.fetchProposalsV1(ctx, node)
+		votes, err = w.fetchProposalsV1(ctx, node)
 	}
+
+	if err != nil {
+		return err
+	}
+
+	w.metrics.Vote.Reset()
+	for proposalId, votes := range votes {
+		for validator, voted := range votes {
+			w.metrics.Vote.
+				WithLabelValues(node.ChainID(), validator.Address, validator.Name, fmt.Sprintf("%d", proposalId)).
+				Set(metrics.BoolToFloat64(voted))
+		}
+	}
+
+	return nil
 }
 
-func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) error {
+func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) (map[uint64]map[TrackedValidator]bool, error) {
+	votes := make(map[uint64]map[TrackedValidator]bool)
+
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := gov.NewQueryClient(clientCtx)
 
@@ -74,13 +96,14 @@ func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) err
 		ProposalStatus: gov.StatusVotingPeriod,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get proposals: %w", err)
+		return votes, fmt.Errorf("failed to fetch proposals in voting period: %w", err)
 	}
 
 	chainID := node.ChainID()
 
 	// For each proposal, fetch validators vote
 	for _, proposal := range proposalsResp.GetProposals() {
+		votes[proposal.Id] = make(map[TrackedValidator]bool)
 		w.metrics.ProposalEndTime.WithLabelValues(chainID, fmt.Sprintf("%d", proposal.Id)).Set(float64(proposal.VotingEndTime.Unix()))
 
 		for _, validator := range w.validators {
@@ -95,34 +118,29 @@ func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) err
 			})
 
 			if isInvalidArgumentError(err) {
-				w.handleVoteV1(chainID, validator, proposal.Id, nil)
+				votes[proposal.Id][validator] = false
 			} else if err != nil {
-				return fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.Id, err)
+				return votes, fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.Id, err)
 			} else {
 				vote := voteResp.GetVote()
-				w.handleVoteV1(chainID, validator, proposal.Id, vote.Options)
+				voted := false
+				for _, option := range vote.Options {
+					if option.Option != gov.OptionEmpty {
+						voted = true
+						break
+					}
+				}
+				votes[proposal.Id][validator] = voted
 			}
 		}
 	}
 
-	return nil
+	return votes, nil
 }
 
-func (w *VotesWatcher) handleVoteV1(chainID string, validator TrackedValidator, proposalId uint64, votes []*gov.WeightedVoteOption) {
-	voted := false
-	for _, option := range votes {
-		if option.Option != gov.OptionEmpty {
-			voted = true
-			break
-		}
-	}
+func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node) (map[uint64]map[TrackedValidator]bool, error) {
+	votes := make(map[uint64]map[TrackedValidator]bool)
 
-	w.metrics.Vote.
-		WithLabelValues(chainID, validator.Address, validator.Name, fmt.Sprintf("%d", proposalId)).
-		Set(metrics.BoolToFloat64(voted))
-}
-
-func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node) error {
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := govbeta.NewQueryClient(clientCtx)
 
@@ -131,13 +149,14 @@ func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node
 		ProposalStatus: govbeta.StatusVotingPeriod,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get proposals: %w", err)
+		return votes, fmt.Errorf("failed to fetch proposals in voting period: %w", err)
 	}
 
 	chainID := node.ChainID()
 
 	// For each proposal, fetch validators vote
 	for _, proposal := range proposalsResp.GetProposals() {
+		votes[proposal.ProposalId] = make(map[TrackedValidator]bool)
 		w.metrics.ProposalEndTime.WithLabelValues(chainID, fmt.Sprintf("%d", proposal.ProposalId)).Set(float64(proposal.VotingEndTime.Unix()))
 
 		for _, validator := range w.validators {
@@ -152,17 +171,24 @@ func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node
 			})
 
 			if isInvalidArgumentError(err) {
-				w.handleVoteV1Beta1(chainID, validator, proposal.ProposalId, nil)
+				votes[proposal.ProposalId][validator] = false
 			} else if err != nil {
-				return fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.ProposalId, err)
+				return votes, fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.ProposalId, err)
 			} else {
 				vote := voteResp.GetVote()
-				w.handleVoteV1Beta1(chainID, validator, proposal.ProposalId, vote.Options)
+				voted := false
+				for _, option := range vote.Options {
+					if option.Option != govbeta.OptionEmpty {
+						voted = true
+						break
+					}
+				}
+				votes[proposal.ProposalId][validator] = voted
 			}
 		}
 	}
 
-	return nil
+	return votes, nil
 }
 
 func (w *VotesWatcher) handleVoteV1Beta1(chainID string, validator TrackedValidator, proposalId uint64, votes []govbeta.WeightedVoteOption) {

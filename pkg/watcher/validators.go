@@ -45,7 +45,9 @@ func (w *ValidatorsWatcher) Start(ctx context.Context) error {
 		if node == nil {
 			log.Warn().Msg("no node available to fetch validators")
 		} else if err := w.fetchValidators(ctx, node); err != nil {
-			log.Error().Err(err).Msg("failed to fetch staking validators")
+			log.Error().Err(err).
+				Str("node", node.Redacted()).
+				Msg("failed to fetch staking validators")
 		}
 
 		select {

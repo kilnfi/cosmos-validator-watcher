@@ -53,7 +53,9 @@ func (w *UpgradeWatcher) Start(ctx context.Context) error {
 		if node == nil {
 			log.Warn().Msg("no node available to fetch upgrade plan")
 		} else if err := w.fetchUpgrade(ctx, node); err != nil {
-			log.Error().Err(err).Msg("failed to fetch upgrade plan")
+			log.Error().Err(err).
+				Str("node", node.Redacted()).
+				Msg("failed to fetch upgrade plan")
 		}
 
 		select {

@@ -54,9 +54,11 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, node *rpc.Node) error {
 
 	blockResp, err := node.Client.Block(ctx, nil)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to get latest block")
+		log.Warn().Err(err).
+			Str("node", node.Redacted()).
+			Msg("failed to get latest block")
 	} else {
-		w.handleNodeBlock(ctx, node, blockResp.Block)
+		w.handleNodeBlock(node, blockResp.Block)
 	}
 
 	// Ticker to sync validator set
@@ -70,7 +72,7 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, node *rpc.Node) error {
 				return
 			case <-ticker.C:
 				if err := w.syncValidatorSet(ctx, node); err != nil {
-					log.Error().Err(err).Msg("failed to sync validator set")
+					log.Error().Err(err).Str("node", node.Redacted()).Msg("failed to sync validator set")
 				}
 			}
 		}
@@ -88,7 +90,7 @@ func (w *BlockWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ctyp
 	blockEvent := evt.Data.(types.EventDataNewBlock)
 	block := blockEvent.Block
 
-	w.handleNodeBlock(ctx, node, block)
+	w.handleNodeBlock(node, block)
 
 	return nil
 }
@@ -104,7 +106,7 @@ func (w *BlockWatcher) OnValidatorSetUpdates(ctx context.Context, node *rpc.Node
 	return nil
 }
 
-func (w *BlockWatcher) handleNodeBlock(ctx context.Context, node *rpc.Node, block *types.Block) {
+func (w *BlockWatcher) handleNodeBlock(node *rpc.Node, block *types.Block) {
 	validatorSet := w.getValidatorSet()
 
 	if len(validatorSet) != block.LastCommit.Size() {
