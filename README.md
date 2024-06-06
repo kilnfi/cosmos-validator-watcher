@@ -106,6 +106,7 @@ Metrics (without prefix)  | Description
 `node_block_height`       | Latest fetched block height for each node
 `node_synced`             | Set to 1 is the node is synced (ie. not catching-up)
 `proposal_end_time`       | Timestamp of the voting end time of a proposal
+`proposed_blocks`         | Number of proposed blocks per validator (for a bonded validator)
 `rank`                    | Rank of the validator
 `seat_price`              | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
 `skipped_blocks`          | Number of blocks skipped (ie. not tracked) since start
