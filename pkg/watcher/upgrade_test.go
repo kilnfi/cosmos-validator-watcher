@@ -3,7 +3,7 @@ package watcher
 import (
 	"testing"
 
-	upgrade "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+	upgrade "cosmossdk.io/x/upgrade/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"gotest.tools/assert"

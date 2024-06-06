@@ -19,7 +19,7 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 	// Compute total signed validators
 	signedValidators := 0
 	for _, sig := range block.LastCommit.Signatures {
-		if !sig.Absent() {
+		if sig.BlockIDFlag == types.BlockIDFlagCommit {
 			signedValidators++
 		}
 	}
