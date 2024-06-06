@@ -230,7 +230,7 @@ func (w *BlockWatcher) computeValidatorStatus(block *types.Block) []ValidatorSta
 		for i, sig := range block.LastCommit.Signatures {
 			if val.Address == sig.ValidatorAddress.String() {
 				bonded = true
-				signed = !sig.Absent()
+				signed = (sig.BlockIDFlag == types.BlockIDFlagCommit)
 				rank = i + 1
 			}
 			if signed {
