@@ -20,6 +20,7 @@ type Metrics struct {
 
 	// Validator metrics
 	Rank             *prometheus.GaugeVec
+	ProposedBlocks   *prometheus.CounterVec
 	ValidatedBlocks  *prometheus.CounterVec
 	MissedBlocks     *prometheus.CounterVec
 	SoloMissedBlocks *prometheus.CounterVec
@@ -66,6 +67,14 @@ func New(namespace string) *Metrics {
 				Namespace: namespace,
 				Name:      "rank",
 				Help:      "Rank of the validator",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		ProposedBlocks: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "proposed_blocks",
+				Help:      "Number of proposed blocks per validator (for a bonded validator)",
 			},
 			[]string{"chain_id", "address", "name"},
 		),
@@ -202,6 +211,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.ActiveSet)
 	m.Registry.MustRegister(m.SeatPrice)
 	m.Registry.MustRegister(m.Rank)
+	m.Registry.MustRegister(m.ProposedBlocks)
 	m.Registry.MustRegister(m.ValidatedBlocks)
 	m.Registry.MustRegister(m.MissedBlocks)
 	m.Registry.MustRegister(m.SoloMissedBlocks)

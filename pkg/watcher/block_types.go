@@ -11,6 +11,7 @@ type BlockInfo struct {
 	Transactions     int
 	TotalValidators  int
 	SignedValidators int
+	ProposerAddress  string
 	ValidatorStatus  []ValidatorStatus
 }
 
@@ -30,6 +31,7 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 		TotalValidators:  len(block.LastCommit.Signatures),
 		SignedValidators: signedValidators,
 		ValidatorStatus:  validatorStatus,
+		ProposerAddress:  block.Header.ProposerAddress.String(),
 	}
 }
 

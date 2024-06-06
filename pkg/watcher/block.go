@@ -18,12 +18,13 @@ import (
 )
 
 type BlockWatcher struct {
-	trackedValidators []TrackedValidator
-	metrics           *metrics.Metrics
-	writer            io.Writer
-	blockChan         chan *BlockInfo
-	validatorSet      atomic.Value // []*types.Validator
-	latestBlockHeight int64
+	trackedValidators   []TrackedValidator
+	metrics             *metrics.Metrics
+	writer              io.Writer
+	blockChan           chan *BlockInfo
+	validatorSet        atomic.Value // []*types.Validator
+	latestBlockHeight   int64
+	latestBlockProposer string
 }
 
 func NewBlockWatcher(validators []TrackedValidator, metrics *metrics.Metrics, writer io.Writer) *BlockWatcher {
@@ -32,7 +33,6 @@ func NewBlockWatcher(validators []TrackedValidator, metrics *metrics.Metrics, wr
 		metrics:           metrics,
 		writer:            writer,
 		blockChan:         make(chan *BlockInfo),
-		latestBlockHeight: 0,
 	}
 }
 
@@ -181,7 +181,6 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 		w.metrics.SkippedBlocks.WithLabelValues(chainId).Add(float64(blockDiff))
 	}
 
-	w.latestBlockHeight = block.Height
 	w.metrics.BlockHeight.WithLabelValues(chainId).Set(float64(block.Height))
 	w.metrics.ActiveSet.WithLabelValues(chainId).Set(float64(block.TotalValidators))
 	w.metrics.TrackedBlocks.WithLabelValues(chainId).Inc()
@@ -191,7 +190,11 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 	validatorStatus := []string{}
 	for _, res := range block.ValidatorStatus {
 		icon := "⚪️"
-		if res.Signed {
+		if w.latestBlockProposer == res.Address {
+			icon = "👑"
+			w.metrics.ProposedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+		} else if res.Signed {
 			icon = "✅"
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 		} else if res.Bonded {
@@ -212,6 +215,9 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 		color.CyanString(fmt.Sprintf("%3d/%d validators", block.SignedValidators, block.TotalValidators)),
 		strings.Join(validatorStatus, " "),
 	)
+
+	w.latestBlockHeight = block.Height
+	w.latestBlockProposer = block.ProposerAddress
 }
 
 func (w *BlockWatcher) computeValidatorStatus(block *types.Block) []ValidatorStatus {
