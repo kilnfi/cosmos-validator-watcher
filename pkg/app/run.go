@@ -232,7 +232,16 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 			return nil, fmt.Errorf("failed to create client: %w", err)
 		}
 
-		rpcNodes[i] = rpc.NewNode(client)
+		opts := []rpc.NodeOption{}
+
+		// Check is query string websocket is present in the endpoint
+		if u, err := url.Parse(endpoint); err == nil {
+			if u.Query().Get("__websocket") == "0" {
+				opts = append(opts, rpc.DisableWebsocket())
+			}
+		}
+
+		rpcNodes[i] = rpc.NewNode(client, opts...)
 
 		status, err := rpcNodes[i].Status(ctx)
 		if err != nil {
