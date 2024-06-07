@@ -30,11 +30,19 @@ type OnNodeStatus func(ctx context.Context, n *Node, status *ctypes.ResultStatus
 
 type NodeOption func(*Node)
 
+func DisableWebsocket() NodeOption {
+	return func(n *Node) {
+		n.disableWebsocket = true
+	}
+}
+
 type Node struct {
 	Client *http.HTTP
 
 	// Save endpoint url for redacted logging
 	endpoint *url.URL
+
+	disableWebsocket bool
 
 	onStart  []OnNodeStart
 	onStatus []OnNodeStatus
@@ -143,8 +151,10 @@ func (n *Node) Start(ctx context.Context) error {
 	initTicker.Stop()
 
 	// Start the websocket process
-	if err := n.Client.Start(); err != nil {
-		return fmt.Errorf("failed to start client: %w", err)
+	if !n.disableWebsocket {
+		if err := n.Client.Start(); err != nil {
+			return fmt.Errorf("failed to start client: %w", err)
+		}
 	}
 
 	blocksEvents, err := n.Subscribe(ctx, EventNewBlock)
@@ -351,6 +361,10 @@ func (n *Node) Stop(ctx context.Context) error {
 }
 
 func (n *Node) Subscribe(ctx context.Context, eventType string) (<-chan ctypes.ResultEvent, error) {
+	if n.disableWebsocket {
+		return make(chan ctypes.ResultEvent), nil
+	}
+
 	if res, ok := n.subscriptions[eventType]; ok {
 		return res, nil
 	}
