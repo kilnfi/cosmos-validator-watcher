@@ -72,6 +72,8 @@ GLOBAL OPTIONS:
    --node value [ --node value ]            rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
    --no-gov                                 disable calls to gov module (useful for consumer chains) (default: false)
    --no-staking                             disable calls to staking module (useful for consumer chains) (default: false)
+   --no-commission                          disable calls to get validator commission (useful for chains without distribution module) (default: false)
+   --no-upgrade                             disable calls to upgrade module (for chains created without the upgrade module) (default: false)
    --denom value                            denom used in metrics label (eg. atom or uatom)
    --denom-exponent value                   denom exponent (eg. 6 for atom, 1 for uatom) (default: 0)
    --start-timeout value                    timeout to wait on startup for one node to be ready (default: 10s)

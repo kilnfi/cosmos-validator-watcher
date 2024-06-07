@@ -43,6 +43,14 @@ var Flags = []cli.Flag{
 		Name:  "no-staking",
 		Usage: "disable calls to staking module (useful for consumer chains)",
 	},
+	&cli.BoolFlag{
+		Name:  "no-commission",
+		Usage: "disable calls to get validator commission (useful for chains without distribution module)",
+	},
+	&cli.BoolFlag{
+		Name:  "no-upgrade",
+		Usage: "disable calls to upgrade module (for chains created without the upgrade module)",
+	},
 	&cli.StringFlag{
 		Name:  "denom",
 		Usage: "denom used in metrics label (eg. atom or uatom)",

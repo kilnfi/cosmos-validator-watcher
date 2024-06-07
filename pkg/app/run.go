@@ -39,6 +39,8 @@ func RunFunc(cCtx *cli.Context) error {
 		nodes        = cCtx.StringSlice("node")
 		noGov        = cCtx.Bool("no-gov")
 		noStaking    = cCtx.Bool("no-staking")
+		noUpgrade    = cCtx.Bool("no-upgrade")
+		noCommission = cCtx.Bool("no-commission")
 		denom        = cCtx.String("denom")
 		denomExpon   = cCtx.Uint("denom-exponent")
 		startTimeout = cCtx.Duration("start-timeout")
@@ -95,10 +97,12 @@ func RunFunc(cCtx *cli.Context) error {
 	errg.Go(func() error {
 		return statusWatcher.Start(ctx)
 	})
-	commissionWatcher := watcher.NewCommissionsWatcher(trackedValidators, metrics, pool)
-	errg.Go(func() error {
-		return commissionWatcher.Start(ctx)
-	})
+	if !noCommission {
+		commissionWatcher := watcher.NewCommissionsWatcher(trackedValidators, metrics, pool)
+		errg.Go(func() error {
+			return commissionWatcher.Start(ctx)
+		})
+	}
 
 	//
 	// Pool watchers
@@ -132,13 +136,17 @@ func RunFunc(cCtx *cli.Context) error {
 		}
 		wh = webhook.New(*whURL)
 	}
-	upgradeWatcher := watcher.NewUpgradeWatcher(metrics, pool, wh, watcher.UpgradeWatcherOptions{
-		CheckPendingProposals: !noGov,
-		GovModuleVersion:      xGov,
-	})
-	errg.Go(func() error {
-		return upgradeWatcher.Start(ctx)
-	})
+
+	var upgradeWatcher *watcher.UpgradeWatcher
+	if !noUpgrade {
+		upgradeWatcher = watcher.NewUpgradeWatcher(metrics, pool, wh, watcher.UpgradeWatcherOptions{
+			CheckPendingProposals: !noGov,
+			GovModuleVersion:      xGov,
+		})
+		errg.Go(func() error {
+			return upgradeWatcher.Start(ctx)
+		})
+	}
 
 	//
 	// Register watchers on nodes events
@@ -147,7 +155,10 @@ func RunFunc(cCtx *cli.Context) error {
 		node.OnStart(blockWatcher.OnNodeStart)
 		node.OnStatus(statusWatcher.OnNodeStatus)
 		node.OnEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
-		node.OnEvent(rpc.EventNewBlock, upgradeWatcher.OnNewBlock)
+
+		if upgradeWatcher != nil {
+			node.OnEvent(rpc.EventNewBlock, upgradeWatcher.OnNewBlock)
+		}
 	}
 
 	//
