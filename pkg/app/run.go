@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
+	_ "github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/watcher"
