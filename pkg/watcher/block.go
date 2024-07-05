@@ -172,6 +172,7 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 		w.metrics.ValidatedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.MissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.SoloMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
+		w.metrics.ConsecutiveMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 	}
 	w.metrics.SkippedBlocks.WithLabelValues(chainId)
 
@@ -197,9 +198,11 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 		} else if res.Signed {
 			icon = "✅"
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			w.metrics.ConsecutiveMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Set(0)
 		} else if res.Bonded {
 			icon = "❌"
 			w.metrics.MissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			w.metrics.ConsecutiveMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 
 			// Check if solo missed block
 			if block.SignedRatio().GreaterThan(decimal.NewFromFloat(0.66)) {
