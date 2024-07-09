@@ -195,6 +195,7 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 			icon = "👑"
 			w.metrics.ProposedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			w.metrics.ConsecutiveMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Set(0)
 		} else if res.Signed {
 			icon = "✅"
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
