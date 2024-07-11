@@ -97,28 +97,29 @@ GLOBAL OPTIONS:
 
 All metrics are by default prefixed by `cosmos_validator_watcher` but this can be changed through options.
 
-Metrics (without prefix)  | Description
---------------------------|-------------------------------------------------------------------------
-`active_set`              | Number of validators in the active set
-`block_height`            | Latest known block height (all nodes mixed up)
-`commission`              | Earned validator commission
-`is_bonded`               | Set to 1 if the validator is bonded
-`is_jailed`               | Set to 1 if the validator is jailed
-`missed_blocks`           | Number of missed blocks per validator (for a bonded validator)
-`node_block_height`       | Latest fetched block height for each node
-`node_synced`             | Set to 1 is the node is synced (ie. not catching-up)
-`proposal_end_time`       | Timestamp of the voting end time of a proposal
-`proposed_blocks`         | Number of proposed blocks per validator (for a bonded validator)
-`rank`                    | Rank of the validator
-`seat_price`              | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
-`skipped_blocks`          | Number of blocks skipped (ie. not tracked) since start
-`solo_missed_blocks`      | Number of missed blocks per validator, unless the block is missed by many other validators
-`tokens`                  | Number of staked tokens per validator
-`tracked_blocks`          | Number of blocks tracked since start
-`transactions`            | Number of transactions since start
-`validated_blocks`        | Number of validated blocks per validator (for a bonded validator)
-`vote`                    | Set to 1 if the validator has voted on a proposal
-`upgrade_plan`            | Block height of the upcoming upgrade (hard fork)
+Metrics (without prefix)   | Description
+---------------------------|-------------------------------------------------------------------------
+`active_set`               | Number of validators in the active set
+`block_height`             | Latest known block height (all nodes mixed up)
+`commission`               | Earned validator commission
+`is_bonded`                | Set to 1 if the validator is bonded
+`is_jailed`                | Set to 1 if the validator is jailed
+`missed_blocks`            | Number of missed blocks per validator (for a bonded validator)
+`consecutive_missed_blocks`| Number of consecutive missed blocks per validator (for a bonded validator)
+`node_block_height`        | Latest fetched block height for each node
+`node_synced`              | Set to 1 is the node is synced (ie. not catching-up)
+`proposal_end_time`        | Timestamp of the voting end time of a proposal
+`proposed_blocks`          | Number of proposed blocks per validator (for a bonded validator)
+`rank`                     | Rank of the validator
+`seat_price`               | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
+`skipped_blocks`           | Number of blocks skipped (ie. not tracked) since start
+`solo_missed_blocks`       | Number of missed blocks per validator, unless the block is missed by many other validators
+`tokens`                   | Number of staked tokens per validator
+`tracked_blocks`           | Number of blocks tracked since start
+`transactions`             | Number of transactions since start
+`validated_blocks`         | Number of validated blocks per validator (for a bonded validator)
+`vote`                     | Set to 1 if the validator has voted on a proposal
+`upgrade_plan`             | Block height of the upcoming upgrade (hard fork)
 
 
 ## ❓FAQ
