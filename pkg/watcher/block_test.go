@@ -137,7 +137,7 @@ func TestBlockWatcher(t *testing.T) {
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.ValidatedBlocks))
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.MissedBlocks))
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.SoloMissedBlocks))
-		assert.Equal(t, 0, testutil.CollectAndCount(blockWatcher.metrics.ConsecutiveMissedBlocks))
+		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.ConsecutiveMissedBlocks))
 		assert.Equal(t, float64(1), testutil.ToFloat64(blockWatcher.metrics.ProposedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(3), testutil.ToFloat64(blockWatcher.metrics.ValidatedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(1), testutil.ToFloat64(blockWatcher.metrics.MissedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
