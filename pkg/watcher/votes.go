@@ -120,7 +120,11 @@ func (w *VotesWatcher) fetchProposalsV1(ctx context.Context, node *rpc.Node) (ma
 			if isInvalidArgumentError(err) {
 				votes[proposal.Id][validator] = false
 			} else if err != nil {
-				return votes, fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.Id, err)
+				votes[proposal.Id][validator] = false
+				log.Warn().
+					Str("validator", validator.Name).
+					Str("proposal", fmt.Sprintf("%d", proposal.Id)).
+					Err(err).Msg("failed to get validator vote for proposal")
 			} else {
 				vote := voteResp.GetVote()
 				voted := false
@@ -173,7 +177,11 @@ func (w *VotesWatcher) fetchProposalsV1Beta1(ctx context.Context, node *rpc.Node
 			if isInvalidArgumentError(err) {
 				votes[proposal.ProposalId][validator] = false
 			} else if err != nil {
-				return votes, fmt.Errorf("failed to get validator vote for proposal %d: %w", proposal.ProposalId, err)
+				votes[proposal.ProposalId][validator] = false
+				log.Warn().
+					Str("validator", validator.Name).
+					Str("proposal", fmt.Sprintf("%d", proposal.ProposalId)).
+					Err(err).Msg("failed to get validator vote for proposal")
 			} else {
 				vote := voteResp.GetVote()
 				voted := false
