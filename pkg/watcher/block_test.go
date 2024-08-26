@@ -2,10 +2,13 @@ package watcher
 
 import (
 	"bytes"
+	"context"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/webhook"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"gotest.tools/assert"
 )
@@ -26,6 +29,8 @@ func TestBlockWatcher(t *testing.T) {
 		},
 		metrics.New("cosmos_validator_watcher"),
 		&bytes.Buffer{},
+		webhook.New(url.URL{}),
+		[]BlockWebhook{},
 	)
 
 	t.Run("Handle BlockInfo", func(t *testing.T) {
@@ -114,7 +119,7 @@ func TestBlockWatcher(t *testing.T) {
 		}
 
 		for _, block := range blocks {
-			blockWatcher.handleBlockInfo(&block)
+			blockWatcher.handleBlockInfo(context.Background(), &block)
 		}
 
 		assert.Equal(t,

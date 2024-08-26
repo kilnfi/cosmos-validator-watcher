@@ -54,7 +54,7 @@ func (w *Webhook) Send(ctx context.Context, message interface{}) error {
 	}, retryOpts...)
 }
 
-func (w *Webhook) postRequest(ctx context.Context, req *http.Request) error {
+func (w *Webhook) postRequest(_ context.Context, req *http.Request) error {
 	resp, err := w.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)

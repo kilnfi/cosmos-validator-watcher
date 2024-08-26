@@ -13,9 +13,15 @@ import (
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/webhook"
 	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 )
+
+type BlockWebhook struct {
+	Height   int64             `json:"height"`
+	Metadata map[string]string `json:"metadata"`
+}
 
 type BlockWatcher struct {
 	trackedValidators   []TrackedValidator
@@ -25,14 +31,18 @@ type BlockWatcher struct {
 	validatorSet        atomic.Value // []*types.Validator
 	latestBlockHeight   int64
 	latestBlockProposer string
+	webhook             *webhook.Webhook
+	customWebhooks      []BlockWebhook
 }
 
-func NewBlockWatcher(validators []TrackedValidator, metrics *metrics.Metrics, writer io.Writer) *BlockWatcher {
+func NewBlockWatcher(validators []TrackedValidator, metrics *metrics.Metrics, writer io.Writer, webhook *webhook.Webhook, customWebhooks []BlockWebhook) *BlockWatcher {
 	return &BlockWatcher{
 		trackedValidators: validators,
 		metrics:           metrics,
 		writer:            writer,
 		blockChan:         make(chan *BlockInfo),
+		webhook:           webhook,
+		customWebhooks:    customWebhooks,
 	}
 }
 
@@ -42,7 +52,7 @@ func (w *BlockWatcher) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case block := <-w.blockChan:
-			w.handleBlockInfo(block)
+			w.handleBlockInfo(ctx, block)
 		}
 	}
 }
@@ -159,7 +169,7 @@ func (w *BlockWatcher) syncValidatorSet(ctx context.Context, n *rpc.Node) error 
 	return nil
 }
 
-func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
+func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 	chainId := block.ChainID
 
 	if w.latestBlockHeight >= block.Height {
@@ -220,6 +230,9 @@ func (w *BlockWatcher) handleBlockInfo(block *BlockInfo) {
 		strings.Join(validatorStatus, " "),
 	)
 
+	// Handle webhooks
+	w.handleWebhooks(ctx, block)
+
 	w.latestBlockHeight = block.Height
 	w.latestBlockProposer = block.ProposerAddress
 }
@@ -260,4 +273,39 @@ func (w *BlockWatcher) isValidatorActive(address string) bool {
 		}
 	}
 	return false
+}
+
+func (w *BlockWatcher) handleWebhooks(ctx context.Context, block *BlockInfo) {
+	if len(w.customWebhooks) == 0 {
+		return
+	}
+
+	newWebhooks := []BlockWebhook{}
+
+	for _, webhook := range w.customWebhooks {
+		// If webhook block height is passed
+		if webhook.Height <= block.Height {
+			w.triggerWebhook(ctx, block.ChainID, webhook)
+		} else {
+			newWebhooks = append(newWebhooks, webhook)
+		}
+	}
+
+	w.customWebhooks = newWebhooks
+}
+
+func (w *BlockWatcher) triggerWebhook(ctx context.Context, chainID string, wh BlockWebhook) {
+	msg := make(map[string]string)
+	msg["type"] = "custom"
+	msg["block"] = fmt.Sprintf("%d", wh.Height)
+	msg["chain_id"] = chainID
+	for k, v := range wh.Metadata {
+		msg[k] = v
+	}
+
+	go func() {
+		if err := w.webhook.Send(context.Background(), msg); err != nil {
+			log.Error().Err(err).Msg("failed to send upgrade webhook")
+		}
+	}()
 }

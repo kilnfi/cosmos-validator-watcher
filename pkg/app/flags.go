@@ -77,6 +77,10 @@ var Flags = []cli.Flag{
 		Name:  "webhook-url",
 		Usage: "endpoint where to send upgrade webhooks (experimental)",
 	},
+	&cli.StringSliceFlag{
+		Name:  "webhook-custom-block",
+		Usage: "trigger a custom webhook at a given block number (experimental)",
+	},
 	&cli.StringFlag{
 		Name:  "x-gov",
 		Usage: "version of the gov module to use (v1|v1beta1)",

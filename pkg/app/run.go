@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/cometbft/cometbft/rpc/client/http"
@@ -31,23 +32,24 @@ func RunFunc(cCtx *cli.Context) error {
 		ctx = cCtx.Context
 
 		// Config flags
-		chainID      = cCtx.String("chain-id")
-		httpAddr     = cCtx.String("http-addr")
-		logLevel     = cCtx.String("log-level")
-		namespace    = cCtx.String("namespace")
-		noColor      = cCtx.Bool("no-color")
-		nodes        = cCtx.StringSlice("node")
-		noGov        = cCtx.Bool("no-gov")
-		noStaking    = cCtx.Bool("no-staking")
-		noUpgrade    = cCtx.Bool("no-upgrade")
-		noCommission = cCtx.Bool("no-commission")
-		denom        = cCtx.String("denom")
-		denomExpon   = cCtx.Uint("denom-exponent")
-		startTimeout = cCtx.Duration("start-timeout")
-		stopTimeout  = cCtx.Duration("stop-timeout")
-		validators   = cCtx.StringSlice("validator")
-		webhookURL   = cCtx.String("webhook-url")
-		xGov         = cCtx.String("x-gov")
+		chainID             = cCtx.String("chain-id")
+		httpAddr            = cCtx.String("http-addr")
+		logLevel            = cCtx.String("log-level")
+		namespace           = cCtx.String("namespace")
+		noColor             = cCtx.Bool("no-color")
+		nodes               = cCtx.StringSlice("node")
+		noGov               = cCtx.Bool("no-gov")
+		noStaking           = cCtx.Bool("no-staking")
+		noUpgrade           = cCtx.Bool("no-upgrade")
+		noCommission        = cCtx.Bool("no-commission")
+		denom               = cCtx.String("denom")
+		denomExpon          = cCtx.Uint("denom-exponent")
+		startTimeout        = cCtx.Duration("start-timeout")
+		stopTimeout         = cCtx.Duration("stop-timeout")
+		validators          = cCtx.StringSlice("validator")
+		webhookURL          = cCtx.String("webhook-url")
+		webhookCustomBlocks = cCtx.StringSlice("webhook-custom-block")
+		xGov                = cCtx.String("x-gov")
 	)
 
 	//
@@ -84,12 +86,34 @@ func RunFunc(cCtx *cli.Context) error {
 		return err
 	}
 
+	var wh *webhook.Webhook
+	if webhookURL != "" {
+		whURL, err := url.Parse(webhookURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse webhook endpoint: %w", err)
+		}
+		wh = webhook.New(*whURL)
+	}
+
+	// Custom block webhooks
+	blockWebhooks := []watcher.BlockWebhook{}
+	for _, block := range webhookCustomBlocks {
+		blockHeight, err := strconv.ParseInt(block, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse block height for custom webhook (%s): %w", block, err)
+		}
+		blockWebhooks = append(blockWebhooks, watcher.BlockWebhook{
+			Height:   blockHeight,
+			Metadata: map[string]string{},
+		})
+	}
+
 	//
 	// Node Watchers
 	//
 	metrics := metrics.New(namespace)
 	metrics.Register()
-	blockWatcher := watcher.NewBlockWatcher(trackedValidators, metrics, os.Stdout)
+	blockWatcher := watcher.NewBlockWatcher(trackedValidators, metrics, os.Stdout, wh, blockWebhooks)
 	errg.Go(func() error {
 		return blockWatcher.Start(ctx)
 	})
@@ -127,14 +151,6 @@ func RunFunc(cCtx *cli.Context) error {
 		errg.Go(func() error {
 			return votesWatcher.Start(ctx)
 		})
-	}
-	var wh *webhook.Webhook
-	if webhookURL != "" {
-		whURL, err := url.Parse(webhookURL)
-		if err != nil {
-			return fmt.Errorf("failed to parse webhook endpoint: %w", err)
-		}
-		wh = webhook.New(*whURL)
 	}
 
 	var upgradeWatcher *watcher.UpgradeWatcher
