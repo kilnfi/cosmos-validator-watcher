@@ -121,6 +121,8 @@ Metrics (without prefix)   | Description
 `vote`                     | Set to 1 if the validator has voted on a proposal
 `upgrade_plan`             | Block height of the upcoming upgrade (hard fork)
 
+For an example of a Prometheus and Grafana dashboard setup using Docker Compose, you can refer to [21state/cosmos-watcher-stack](https://github.com/21state/cosmos-watcher-stack/).
+
 
 ## ❓FAQ
 
