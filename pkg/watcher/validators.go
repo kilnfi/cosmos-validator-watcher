@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/rs/zerolog/log"
@@ -98,8 +98,7 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 		name := tracked.Name
 
 		for i, val := range validators {
-			pubkey := ed25519.PubKey{Key: val.ConsensusPubkey.Value[2:]}
-			address := pubkey.Address().String()
+			address := crypto.PubKeyAddress(val.ConsensusPubkey)
 
 			if tracked.Address == address {
 				var (
