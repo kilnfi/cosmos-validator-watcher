@@ -11,10 +11,10 @@ import (
 
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
+	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	_ "github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
@@ -318,8 +318,7 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 		val := watcher.ParseValidator(v)
 
 		for _, stakingVal := range stakingValidators {
-			pubkey := ed25519.PubKey{Key: stakingVal.ConsensusPubkey.Value[2:]}
-			address := pubkey.Address().String()
+			address := crypto.PubKeyAddress(stakingVal.ConsensusPubkey)
 			if address == val.Address {
 				val.Moniker = stakingVal.Description.Moniker
 				val.OperatorAddress = stakingVal.OperatorAddress
