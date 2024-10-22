@@ -12,8 +12,12 @@ import (
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	// staking "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"runtime/debug"
+
 	"github.com/fatih/color"
+	stakingM "github.com/initia-labs/initia/x/mstaking/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	_ "github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
@@ -77,12 +81,14 @@ func RunFunc(cCtx *cli.Context) error {
 	// Test connection to nodes
 	pool, err := createNodePool(startCtx, nodes)
 	if err != nil {
+		println("Error: ", err)
 		return err
 	}
 
 	// Parse validators into name & address
 	trackedValidators, err := createTrackedValidators(ctx, pool, validators, noStaking)
 	if err != nil {
+		fmt.Println("Error:", err)
 		return err
 	}
 
@@ -240,6 +246,14 @@ func logLevelFromString(level string) zerolog.Level {
 	}
 }
 
+type stackTraceHook struct{}
+
+func (h stackTraceHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	// Add the stack trace to all log levels (except disabled)
+	if level != zerolog.NoLevel {
+		e.Bytes("stack_trace", debug.Stack())
+	}
+}
 func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 	rpcNodes := make([]*rpc.Node, len(nodes))
 	for i, endpoint := range nodes {
@@ -269,6 +283,7 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 		blockHeight := status.SyncInfo.LatestBlockHeight
 
 		logger := log.With().Int64("height", blockHeight).Str("chainID", chainID).Logger()
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 		if rpcNodes[i].IsSynced() {
 			logger.Info().Msgf("connected to %s", rpcNodes[i].Redacted())
@@ -282,6 +297,7 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 	for _, node := range rpcNodes {
 		if chainID == "" {
 			chainID = node.ChainID()
+			fmt.Println("my node chain ID:", node.ChainID())
 		} else if chainID != node.ChainID() && node.ChainID() != "" {
 			return nil, fmt.Errorf("nodes are on different chains: %s != %s", chainID, node.ChainID())
 		}
@@ -297,18 +313,20 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 }
 
 func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []string, noStaking bool) ([]watcher.TrackedValidator, error) {
-	var stakingValidators []staking.Validator
+	var stakingValidators []stakingM.Validator
 	if !noStaking {
 		node := pool.GetSyncedNode()
 		clientCtx := (client.Context{}).WithClient(node.Client)
-		queryClient := staking.NewQueryClient(clientCtx)
+		queryClient := stakingM.NewQueryClient(clientCtx)
 
-		resp, err := queryClient.Validators(ctx, &staking.QueryValidatorsRequest{
+		resp, err := queryClient.Validators(ctx, &stakingM.QueryValidatorsRequest{
 			Pagination: &query.PageRequest{
 				Limit: 3000,
 			},
 		})
+		fmt.Println("resp:", resp)
 		if err != nil {
+			fmt.Println("Error query:", err)
 			return nil, err
 		}
 		stakingValidators = resp.Validators

@@ -32,6 +32,7 @@ func (p *Pool) Start(ctx context.Context) error {
 		node := node
 		// Start node
 		errg.Go(func() error {
+			println("!!!!!!!!!!!!!!")
 			if err := node.Start(ctx); err != nil {
 				log.Error().Err(err).Msg("node error")
 			}
