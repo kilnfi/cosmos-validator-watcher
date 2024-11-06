@@ -42,6 +42,7 @@ func RunFunc(cCtx *cli.Context) error {
 		noStaking           = cCtx.Bool("no-staking")
 		noUpgrade           = cCtx.Bool("no-upgrade")
 		noCommission        = cCtx.Bool("no-commission")
+		noSlashing          = cCtx.Bool("no-slashing")
 		denom               = cCtx.String("denom")
 		denomExpon          = cCtx.Uint("denom-exponent")
 		startTimeout        = cCtx.Duration("start-timeout")
@@ -125,6 +126,16 @@ func RunFunc(cCtx *cli.Context) error {
 		commissionWatcher := watcher.NewCommissionsWatcher(trackedValidators, metrics, pool)
 		errg.Go(func() error {
 			return commissionWatcher.Start(ctx)
+		})
+	}
+
+	//
+	// Slashing watchers
+	//
+	if !noSlashing {
+		slashingWatcher := watcher.NewSlashingWatcher(metrics, pool)
+		errg.Go(func() error {
+			return slashingWatcher.Start(ctx)
 		})
 	}
 
@@ -320,8 +331,10 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 		for _, stakingVal := range stakingValidators {
 			address := crypto.PubKeyAddress(stakingVal.ConsensusPubkey)
 			if address == val.Address {
+				hrp := crypto.GetHrpPrefix(stakingVal.OperatorAddress) + "valcons"
 				val.Moniker = stakingVal.Description.Moniker
 				val.OperatorAddress = stakingVal.OperatorAddress
+				val.ConsensusAddress = crypto.PubKeyBech32Address(stakingVal.ConsensusPubkey, hrp)
 			}
 		}
 
@@ -336,6 +349,7 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 			Str("alias", val.Name).
 			Str("moniker", val.Moniker).
 			Str("operator", val.OperatorAddress).
+			Str("consensus", val.ConsensusAddress).
 			Msgf("validator info")
 
 		return val

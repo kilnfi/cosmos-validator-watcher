@@ -8,6 +8,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	slashing "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
@@ -48,14 +49,36 @@ func (w *ValidatorsWatcher) Start(ctx context.Context) error {
 			log.Error().Err(err).
 				Str("node", node.Redacted()).
 				Msg("failed to fetch staking validators")
+		} else if err := w.fetchSigningInfos(ctx, node); err != nil {
+			log.Error().Err(err).
+				Str("node", node.Redacted()).
+				Msg("failed to fetch signing infos")
 		}
-
+		log.Info().Msg("fetched staking validators and signing infos")
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
 		}
 	}
+}
+
+func (w *ValidatorsWatcher) fetchSigningInfos(ctx context.Context, node *rpc.Node) error {
+	clientCtx := (client.Context{}).WithClient(node.Client)
+	queryClient := slashing.NewQueryClient(clientCtx)
+	signingInfos, err := queryClient.SigningInfos(ctx, &slashing.QuerySigningInfosRequest{
+		Pagination: &query.PageRequest{
+			Limit: 3000,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get signing infos: %w", err)
+	}
+
+	w.handleSigningInfos(node.ChainID(), signingInfos.Info)
+
+	return nil
+
 }
 
 func (w *ValidatorsWatcher) fetchValidators(ctx context.Context, node *rpc.Node) error {
@@ -74,6 +97,25 @@ func (w *ValidatorsWatcher) fetchValidators(ctx context.Context, node *rpc.Node)
 	w.handleValidators(node.ChainID(), validators.Validators)
 
 	return nil
+}
+
+func (w *ValidatorsWatcher) handleSigningInfos(chainID string, signingInfos []slashing.ValidatorSigningInfo) {
+	for _, tracked := range w.validators {
+		name := tracked.Name
+
+		for _, val := range signingInfos {
+
+			if tracked.ConsensusAddress == val.Address {
+				var (
+					missedBlocksWindow = val.MissedBlocksCounter
+				)
+				log.Info().Msgf("Tracked validator missed blocks: %d", missedBlocksWindow)
+				w.metrics.MissedBlocksWindow.WithLabelValues(chainID, tracked.Address, name).Set(float64(missedBlocksWindow))
+				break
+			}
+		}
+
+	}
 }
 
 func (w *ValidatorsWatcher) handleValidators(chainID string, validators []staking.Validator) {
@@ -99,7 +141,6 @@ func (w *ValidatorsWatcher) handleValidators(chainID string, validators []stakin
 
 		for i, val := range validators {
 			address := crypto.PubKeyAddress(val.ConsensusPubkey)
-
 			if tracked.Address == address {
 				var (
 					rank     = i + 1

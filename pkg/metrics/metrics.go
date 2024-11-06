@@ -9,27 +9,33 @@ type Metrics struct {
 	Registry *prometheus.Registry
 
 	// Global metrics
-	ActiveSet       *prometheus.GaugeVec
-	BlockHeight     *prometheus.GaugeVec
-	ProposalEndTime *prometheus.GaugeVec
-	SeatPrice       *prometheus.GaugeVec
-	SkippedBlocks   *prometheus.CounterVec
-	TrackedBlocks   *prometheus.CounterVec
-	Transactions    *prometheus.CounterVec
-	UpgradePlan     *prometheus.GaugeVec
+	ActiveSet                *prometheus.GaugeVec
+	BlockHeight              *prometheus.GaugeVec
+	ProposalEndTime          *prometheus.GaugeVec
+	SeatPrice                *prometheus.GaugeVec
+	SkippedBlocks            *prometheus.CounterVec
+	TrackedBlocks            *prometheus.CounterVec
+	Transactions             *prometheus.CounterVec
+	UpgradePlan              *prometheus.GaugeVec
+	SignedBlocksWindow       *prometheus.GaugeVec
+	MinSignedBlocksPerWindow *prometheus.GaugeVec
+	DowntimeJailDuration     *prometheus.GaugeVec
+	SlashFractionDoubleSign  *prometheus.GaugeVec
+	SlashFractionDowntime    *prometheus.GaugeVec
 
 	// Validator metrics
-	Rank             		*prometheus.GaugeVec
-	ProposedBlocks   		*prometheus.CounterVec
-	ValidatedBlocks  		*prometheus.CounterVec
-	MissedBlocks     		*prometheus.CounterVec
-	SoloMissedBlocks 		*prometheus.CounterVec
+	Rank                    *prometheus.GaugeVec
+	ProposedBlocks          *prometheus.CounterVec
+	ValidatedBlocks         *prometheus.CounterVec
+	MissedBlocks            *prometheus.CounterVec
+	SoloMissedBlocks        *prometheus.CounterVec
 	ConsecutiveMissedBlocks *prometheus.GaugeVec
-	Tokens           		*prometheus.GaugeVec
-	IsBonded         		*prometheus.GaugeVec
-	IsJailed         		*prometheus.GaugeVec
-	Commission       		*prometheus.GaugeVec
-	Vote             		*prometheus.GaugeVec
+	MissedBlocksWindow      *prometheus.GaugeVec
+	Tokens                  *prometheus.GaugeVec
+	IsBonded                *prometheus.GaugeVec
+	IsJailed                *prometheus.GaugeVec
+	Commission              *prometheus.GaugeVec
+	Vote                    *prometheus.GaugeVec
 
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
@@ -108,6 +114,14 @@ func New(namespace string) *Metrics {
 				Namespace: namespace,
 				Name:      "consecutive_missed_blocks",
 				Help:      "Number of consecutive missed blocks per validator (for a bonded validator)",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		MissedBlocksWindow: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "missed_blocks_window",
+				Help:      "Number of missed blocks per validator for the current signing window (for a bonded validator)",
 			},
 			[]string{"chain_id", "address", "name"},
 		),
@@ -207,6 +221,46 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "proposal_id"},
 		),
+		SignedBlocksWindow: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "signed_blocks_window",
+				Help:      "Number of blocks per signing window",
+			},
+			[]string{"chain_id"},
+		),
+		MinSignedBlocksPerWindow: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "min_signed_blocks_per_window",
+				Help:      "Minimum number of blocks required to be signed per signing window",
+			},
+			[]string{"chain_id"},
+		),
+		DowntimeJailDuration: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "downtime_jail_duration",
+				Help:      "Duration of the jail period for a validator in seconds",
+			},
+			[]string{"chain_id"},
+		),
+		SlashFractionDoubleSign: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "slash_fraction_double_sign",
+				Help:      "Slash penaltiy for double-signing",
+			},
+			[]string{"chain_id"},
+		),
+		SlashFractionDowntime: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "slash_fraction_downtime",
+				Help:      "Slash penaltiy for downtime",
+			},
+			[]string{"chain_id"},
+		),
 	}
 
 	return metrics
@@ -225,6 +279,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.MissedBlocks)
 	m.Registry.MustRegister(m.SoloMissedBlocks)
 	m.Registry.MustRegister(m.ConsecutiveMissedBlocks)
+	m.Registry.MustRegister(m.MissedBlocksWindow)
 	m.Registry.MustRegister(m.TrackedBlocks)
 	m.Registry.MustRegister(m.Transactions)
 	m.Registry.MustRegister(m.SkippedBlocks)
@@ -237,4 +292,9 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.NodeSynced)
 	m.Registry.MustRegister(m.UpgradePlan)
 	m.Registry.MustRegister(m.ProposalEndTime)
+	m.Registry.MustRegister(m.SignedBlocksWindow)
+	m.Registry.MustRegister(m.MinSignedBlocksPerWindow)
+	m.Registry.MustRegister(m.DowntimeJailDuration)
+	m.Registry.MustRegister(m.SlashFractionDoubleSign)
+	m.Registry.MustRegister(m.SlashFractionDowntime)
 }

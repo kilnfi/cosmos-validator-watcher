@@ -44,6 +44,10 @@ var Flags = []cli.Flag{
 		Usage: "disable calls to staking module (useful for consumer chains)",
 	},
 	&cli.BoolFlag{
+		Name:  "no-slashing",
+		Usage: "disable calls to slashing module",
+	},
+	&cli.BoolFlag{
 		Name:  "no-commission",
 		Usage: "disable calls to get validator commission (useful for chains without distribution module)",
 	},
