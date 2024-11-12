@@ -35,6 +35,7 @@ func TestValidatorsWatcher(t *testing.T) {
 		ValidatorsWatcherOptions{
 			Denom:         "denom",
 			DenomExponent: 6,
+			NoSlashing:    false,
 		},
 	)
 

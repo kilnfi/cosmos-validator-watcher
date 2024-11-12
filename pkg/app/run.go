@@ -146,6 +146,7 @@ func RunFunc(cCtx *cli.Context) error {
 		validatorsWatcher := watcher.NewValidatorsWatcher(trackedValidators, metrics, pool, watcher.ValidatorsWatcherOptions{
 			Denom:         denom,
 			DenomExponent: denomExpon,
+			NoSlashing:    noSlashing,
 		})
 		errg.Go(func() error {
 			return validatorsWatcher.Start(ctx)

@@ -16,11 +16,11 @@ type SlashingWatcher struct {
 	metrics *metrics.Metrics
 	pool    *rpc.Pool
 
-	signedBlocksWindow         int64
-	min_signed_per_window      float64
-	downtime_jail_duration     float64
-	slash_fraction_double_sign float64
-	slash_fraction_downtime    float64
+	signedBlocksWindow      int64
+	minSignedPerWindow      float64
+	downtimeJailDuration    float64
+	slashFractionDoubleSign float64
+	slashFractionDowntime   float64
 }
 
 func NewSlashingWatcher(metrics *metrics.Metrics, pool *rpc.Pool) *SlashingWatcher {
@@ -57,7 +57,7 @@ func (w *SlashingWatcher) fetchSlashingParameters(ctx context.Context, node *rpc
 	queryClient := slashing.NewQueryClient(clientCtx)
 	sigininParams, err := queryClient.Params(ctx, &slashing.QueryParamsRequest{})
 	if err != nil {
-		return fmt.Errorf("failed to get signing infos: %w", err)
+		return fmt.Errorf("failed to get slashing parameters: %w", err)
 	}
 
 	w.handleSlashingParams(node.ChainID(), sigininParams.Params)
@@ -77,14 +77,14 @@ func (w *SlashingWatcher) handleSlashingParams(chainID string, params slashing.P
 		Msgf("updating slashing metrics")
 
 	w.signedBlocksWindow = params.SignedBlocksWindow
-	w.min_signed_per_window, _ = params.MinSignedPerWindow.Float64()
-	w.downtime_jail_duration = params.DowntimeJailDuration.Seconds()
-	w.slash_fraction_double_sign, _ = params.SlashFractionDoubleSign.Float64()
-	w.slash_fraction_downtime, _ = params.SlashFractionDowntime.Float64()
+	w.minSignedPerWindow, _ = params.MinSignedPerWindow.Float64()
+	w.downtimeJailDuration = params.DowntimeJailDuration.Seconds()
+	w.slashFractionDoubleSign, _ = params.SlashFractionDoubleSign.Float64()
+	w.slashFractionDowntime, _ = params.SlashFractionDowntime.Float64()
 
 	w.metrics.SignedBlocksWindow.WithLabelValues(chainID).Set(float64(w.signedBlocksWindow))
-	w.metrics.MinSignedBlocksPerWindow.WithLabelValues(chainID).Set(w.min_signed_per_window)
-	w.metrics.DowntimeJailDuration.WithLabelValues(chainID).Set(w.downtime_jail_duration)
-	w.metrics.SlashFractionDoubleSign.WithLabelValues(chainID).Set(w.slash_fraction_double_sign)
-	w.metrics.SlashFractionDowntime.WithLabelValues(chainID).Set(w.slash_fraction_downtime)
+	w.metrics.MinSignedBlocksPerWindow.WithLabelValues(chainID).Set(w.minSignedPerWindow)
+	w.metrics.DowntimeJailDuration.WithLabelValues(chainID).Set(w.downtimeJailDuration)
+	w.metrics.SlashFractionDoubleSign.WithLabelValues(chainID).Set(w.slashFractionDoubleSign)
+	w.metrics.SlashFractionDowntime.WithLabelValues(chainID).Set(w.slashFractionDowntime)
 }

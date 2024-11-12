@@ -27,6 +27,7 @@ type ValidatorsWatcher struct {
 type ValidatorsWatcherOptions struct {
 	Denom         string
 	DenomExponent uint
+	NoSlashing    bool
 }
 
 func NewValidatorsWatcher(validators []TrackedValidator, metrics *metrics.Metrics, pool *rpc.Pool, opts ValidatorsWatcherOptions) *ValidatorsWatcher {
@@ -54,7 +55,6 @@ func (w *ValidatorsWatcher) Start(ctx context.Context) error {
 				Str("node", node.Redacted()).
 				Msg("failed to fetch signing infos")
 		}
-		log.Info().Msg("fetched staking validators and signing infos")
 		select {
 		case <-ctx.Done():
 			return nil
@@ -64,20 +64,24 @@ func (w *ValidatorsWatcher) Start(ctx context.Context) error {
 }
 
 func (w *ValidatorsWatcher) fetchSigningInfos(ctx context.Context, node *rpc.Node) error {
-	clientCtx := (client.Context{}).WithClient(node.Client)
-	queryClient := slashing.NewQueryClient(clientCtx)
-	signingInfos, err := queryClient.SigningInfos(ctx, &slashing.QuerySigningInfosRequest{
-		Pagination: &query.PageRequest{
-			Limit: 3000,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get signing infos: %w", err)
+	if !w.opts.NoSlashing {
+		clientCtx := (client.Context{}).WithClient(node.Client)
+		queryClient := slashing.NewQueryClient(clientCtx)
+		signingInfos, err := queryClient.SigningInfos(ctx, &slashing.QuerySigningInfosRequest{
+			Pagination: &query.PageRequest{
+				Limit: 3000,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get signing infos: %w", err)
+		}
+
+		w.handleSigningInfos(node.ChainID(), signingInfos.Info)
+
+		return nil
+	} else {
+		return nil
 	}
-
-	w.handleSigningInfos(node.ChainID(), signingInfos.Info)
-
-	return nil
 
 }
 
@@ -101,16 +105,11 @@ func (w *ValidatorsWatcher) fetchValidators(ctx context.Context, node *rpc.Node)
 
 func (w *ValidatorsWatcher) handleSigningInfos(chainID string, signingInfos []slashing.ValidatorSigningInfo) {
 	for _, tracked := range w.validators {
-		name := tracked.Name
 
 		for _, val := range signingInfos {
 
 			if tracked.ConsensusAddress == val.Address {
-				var (
-					missedBlocksWindow = val.MissedBlocksCounter
-				)
-				log.Info().Msgf("Tracked validator missed blocks: %d", missedBlocksWindow)
-				w.metrics.MissedBlocksWindow.WithLabelValues(chainID, tracked.Address, name).Set(float64(missedBlocksWindow))
+				w.metrics.MissedBlocksWindow.WithLabelValues(chainID, tracked.Address, tracked.Name).Set(float64(val.MissedBlocksCounter))
 				break
 			}
 		}
