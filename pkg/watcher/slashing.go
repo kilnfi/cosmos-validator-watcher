@@ -67,14 +67,14 @@ func (w *SlashingWatcher) fetchSlashingParameters(ctx context.Context, node *rpc
 }
 
 func (w *SlashingWatcher) handleSlashingParams(chainID string, params slashing.Params) {
-	log.Info().
-		Str("Slashing parameters for chain:", chainID).
-		Str("Signed blocks window:", fmt.Sprint(params.SignedBlocksWindow)).
-		Str("Min signed per window:", params.MinSignedPerWindow.String()).
-		Str("Downtime jail duration:", params.DowntimeJailDuration.String()).
-		Str("Slash fraction double sign:", params.SlashFractionDoubleSign.String()).
-		Str("Slash fraction downtime:", params.SlashFractionDowntime.String()).
-		Msgf("Updating slashing metrics for chain %s", chainID)
+	log.Debug().
+		Str("chainID", chainID).
+		Str("downtimeJailDuration", params.DowntimeJailDuration.String()).
+		Str("minSignedPerWindow", fmt.Sprintf("%.2f", params.MinSignedPerWindow.MustFloat64())).
+		Str("signedBlocksWindow", fmt.Sprint(params.SignedBlocksWindow)).
+		Str("slashFractionDoubleSign", fmt.Sprintf("%.2f", params.SlashFractionDoubleSign.MustFloat64())).
+		Str("slashFractionDowntime", fmt.Sprintf("%.2f", params.SlashFractionDowntime.MustFloat64())).
+		Msgf("updating slashing metrics")
 
 	w.signedBlocksWindow = params.SignedBlocksWindow
 	w.min_signed_per_window, _ = params.MinSignedPerWindow.Float64()
