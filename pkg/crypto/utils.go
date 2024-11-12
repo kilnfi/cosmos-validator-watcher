@@ -24,19 +24,10 @@ func PubKeyAddress(consensusPubkey *types1.Any) string {
 }
 
 func PubKeyBech32Address(consensusPubkey *types1.Any, prefix string) string {
-	switch consensusPubkey.TypeUrl {
-	case "/cosmos.crypto.ed25519.PubKey":
-		key := ed25519.PubKey{Key: consensusPubkey.Value[2:]}
-		address, _ := bech32.ConvertAndEncode(prefix, key.Address())
-		return address
-
-	case "/cosmos.crypto.secp256k1.PubKey":
-		key := secp256k1.PubKey{Key: consensusPubkey.Value[2:]}
-		address, _ := bech32.ConvertAndEncode(prefix, key.Address())
-		return address
-	}
-
-	panic("unknown pubkey type: " + consensusPubkey.TypeUrl)
+	key := PubKeyAddress(consensusPubkey)
+	address, _ := bech32.ConvertAndEncode(prefix, key.Address())
+	
+	return address
 }
 
 // GetHrpPrefix returns the human-readable prefix for a given address.
