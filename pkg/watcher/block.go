@@ -227,6 +227,7 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 		w.writer,
 		color.YellowString(fmt.Sprintf("#%d", block.Height-1)),
 		color.CyanString(fmt.Sprintf("%3d/%d validators", block.SignedValidators, block.TotalValidators)),
+		color.GreenString(fmt.Sprintf("txs: %d", block.Transactions)),
 		strings.Join(validatorStatus, " "),
 	)
 
