@@ -24,6 +24,12 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 		}
 	}
 
+	fmt.Fprintln(
+    w.writer,
+    color.YellowString(fmt.Sprintf("#%d", block.Header.Height)),
+    color.BlueString(fmt.Sprintf("txs: %X", block.Txs)), 
+	)
+
 	return &BlockInfo{
 		ChainID:          block.Header.ChainID,
 		Height:           block.Header.Height,
