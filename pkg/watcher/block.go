@@ -223,11 +223,21 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 		validatorStatus = append(validatorStatus, fmt.Sprintf("%s %s", icon, res.Label))
 	}
 
+	txsInfo := ""
+	if len(block.TransactionsData) > 0 {
+			txBzs := make([]string, len(block.TransactionsData))
+			for i, tx := range block.TransactionsData {
+					txBzs[i] = fmt.Sprintf("%X", tx)
+			}
+			txsInfo = color.GreenString(fmt.Sprintf("txs: %s", strings.Join(txBzs, " ")))
+	}
+
 	fmt.Fprintln(
 		w.writer,
 		color.YellowString(fmt.Sprintf("#%d", block.Height-1)),
 		color.CyanString(fmt.Sprintf("%3d/%d validators", block.SignedValidators, block.TotalValidators)),
 		color.GreenString(fmt.Sprintf("txs: %d", block.Transactions)),
+		txsInfo,
 		strings.Join(validatorStatus, " "),
 	)
 
