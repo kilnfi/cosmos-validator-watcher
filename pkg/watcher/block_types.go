@@ -33,7 +33,7 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 	return &BlockInfo{
 		ChainID:          block.Header.ChainID,
 		Height:           block.Header.Height,
-		Transactions:     block.Txs.Len(),
+		Transactions:     len(block.Data.Txs),
 		TransactionsData: txs,
 		TotalValidators:  len(block.LastCommit.Signatures),
 		SignedValidators: signedValidators,
