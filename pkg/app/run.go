@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"syscall"
 
+	upgrade "cosmossdk.io/x/upgrade/types"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -79,6 +80,17 @@ func RunFunc(cCtx *cli.Context) error {
 	pool, err := createNodePool(startCtx, nodes)
 	if err != nil {
 		return err
+	}
+
+	// Detect cosmos modules to automatically disable features
+	modules, err := detectCosmosModules(startCtx, pool.GetSyncedNode())
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to detect cosmos modules")
+	} else {
+		noGov = !ensureCosmosModule("gov", modules) || noGov
+		noStaking = !ensureCosmosModule("staking", modules) || noStaking
+		noSlashing = !ensureCosmosModule("slashing", modules) || noSlashing
+		noCommission = !ensureCosmosModule("distribution", modules) || noCommission
 	}
 
 	// Parse validators into name & address
@@ -306,6 +318,36 @@ func createNodePool(ctx context.Context, nodes []string) (*rpc.Pool, error) {
 	}
 
 	return rpc.NewPool(chainID, rpcNodes), nil
+}
+
+func detectCosmosModules(ctx context.Context, node *rpc.Node) ([]*upgrade.ModuleVersion, error) {
+	if node == nil {
+		return nil, fmt.Errorf("no node available")
+	}
+
+	clientCtx := (client.Context{}).WithClient(node.Client)
+	queryClient := upgrade.NewQueryClient(clientCtx)
+	resp, err := queryClient.ModuleVersions(ctx, &upgrade.QueryModuleVersionsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug().Msgf("detected %d cosmos modules", len(resp.ModuleVersions))
+
+	for _, module := range resp.ModuleVersions {
+		log.Debug().Str("module", module.Name).Uint64("version", module.Version).Msg("detected cosmos module")
+	}
+
+	return resp.ModuleVersions, nil
+}
+
+func ensureCosmosModule(name string, modules []*upgrade.ModuleVersion) bool {
+	for _, module := range modules {
+		if module.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []string, noStaking bool) ([]watcher.TrackedValidator, error) {
