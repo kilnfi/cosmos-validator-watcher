@@ -21,6 +21,10 @@ var Flags = []cli.Flag{
 		Usage: "log level (debug, info, warn, error)",
 		Value: "info",
 	},
+	&cli.BoolFlag{
+		Name:  "debug",
+		Usage: "shortcut for --log-level=debug",
+	},
 	&cli.StringFlag{
 		Name:  "namespace",
 		Usage: "namespace for Prometheus metrics",

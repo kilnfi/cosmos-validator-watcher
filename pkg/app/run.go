@@ -34,6 +34,7 @@ func RunFunc(cCtx *cli.Context) error {
 
 		// Config flags
 		chainID             = cCtx.String("chain-id")
+		debug               = cCtx.Bool("debug")
 		httpAddr            = cCtx.String("http-addr")
 		logLevel            = cCtx.String("log-level")
 		namespace           = cCtx.String("namespace")
@@ -61,6 +62,9 @@ func RunFunc(cCtx *cli.Context) error {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	zerolog.SetGlobalLevel(logLevelFromString(logLevel))
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
 
 	// Disable colored output if requested
 	color.NoColor = noColor
