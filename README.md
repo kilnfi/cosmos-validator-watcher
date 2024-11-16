@@ -67,6 +67,7 @@ GLOBAL OPTIONS:
    --chain-id value                                               to ensure all nodes matches the specific network (dismiss to auto-detected)
    --http-addr value                                              http server address (default: ":8080")
    --log-level value                                              log level (debug, info, warn, error) (default: "info")
+   --debug                                                        shortcut for --log-level=debug (default: false)
    --namespace value                                              namespace for Prometheus metrics (default: "cosmos_validator_watcher")
    --no-color                                                     disable colored output (default: false)
    --node value [ --node value ]                                  rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
