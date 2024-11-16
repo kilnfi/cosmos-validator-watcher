@@ -222,6 +222,8 @@ func (n *Node) loadStatus() *ctypes.ResultStatus {
 }
 
 func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
+	log := log.With().Str("node", n.Redacted()).Logger()
+
 	retryOpts := []retry.Option{
 		retry.Context(ctx),
 		retry.Delay(1 * time.Second),
@@ -243,7 +245,7 @@ func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 
 	if status.SyncInfo.CatchingUp {
 		// We're catching up, not synced
-		log.Warn().Msgf("node %s is catching up at block %d", n.Redacted(), status.SyncInfo.LatestBlockHeight)
+		log.Warn().Int64("block", status.SyncInfo.LatestBlockHeight).Msgf("node is catching up")
 		return status, nil
 	}
 
@@ -259,6 +261,8 @@ func (n *Node) syncStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 }
 
 func (n *Node) handleStart(ctx context.Context) {
+	log := log.With().Str("node", n.Redacted()).Logger()
+
 	for _, onStart := range n.onStart {
 		if err := onStart(ctx, n); err != nil {
 			log.Error().Err(err).Msgf("failed to call start node callback")
@@ -291,6 +295,8 @@ func (n *Node) saveLatestBlock(block *types.Block) {
 }
 
 func (n *Node) syncBlocks(ctx context.Context) {
+	log := log.With().Str("node", n.Redacted()).Logger()
+
 	// Fetch latest block
 	currentBlockResp, err := n.Client.Block(ctx, nil)
 	if err != nil {
