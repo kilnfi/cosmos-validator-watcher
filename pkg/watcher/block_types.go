@@ -9,7 +9,6 @@ type BlockInfo struct {
 	ChainID          string
 	Height           int64
 	Transactions     int
-	TransactionsData [][]byte
 	TotalValidators  int
 	SignedValidators int
 	ProposerAddress  string
@@ -25,16 +24,10 @@ func NewBlockInfo(block *types.Block, validatorStatus []ValidatorStatus) *BlockI
 		}
 	}
 
-	txs := make([][]byte, len(block.Data.Txs))
-    for i, tx := range block.Data.Txs {
-        txs[i] = tx
-    }
-
 	return &BlockInfo{
 		ChainID:          block.Header.ChainID,
 		Height:           block.Header.Height,
-		Transactions:     len(block.Data.Txs),
-		TransactionsData: txs,
+		Transactions:     block.Txs.Len(),
 		TotalValidators:  len(block.LastCommit.Signatures),
 		SignedValidators: signedValidators,
 		ValidatorStatus:  validatorStatus,

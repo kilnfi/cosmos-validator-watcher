@@ -17,6 +17,7 @@ type Metrics struct {
 	TrackedBlocks   *prometheus.CounterVec
 	Transactions    *prometheus.CounterVec
 	UpgradePlan     *prometheus.GaugeVec
+	EmptyBlocks     *prometheus.CounterVec
 
 	// Validator metrics
 	Rank             		*prometheus.GaugeVec
@@ -207,6 +208,14 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id", "proposal_id"},
 		),
+		EmptyBlocks: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "empty_blocks",
+				Help:      "Number of empty blocks proposed by validator",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
 	}
 
 	return metrics
@@ -237,4 +246,5 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.NodeSynced)
 	m.Registry.MustRegister(m.UpgradePlan)
 	m.Registry.MustRegister(m.ProposalEndTime)
+	m.Registry.MustRegister(m.EmptyBlocks)
 }
