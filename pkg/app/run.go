@@ -95,7 +95,15 @@ func RunFunc(cCtx *cli.Context) error {
 		noStaking = !ensureCosmosModule("staking", modules) || noStaking
 		noSlashing = !ensureCosmosModule("slashing", modules) || noSlashing
 		noCommission = !ensureCosmosModule("distribution", modules) || noCommission
+		noUpgrade = !ensureCosmosModule("upgrade", modules) || noUpgrade
 	}
+	log.Info().
+		Bool("commission", !noCommission).
+		Bool("gov", !noGov).
+		Bool("slashing", !noSlashing).
+		Bool("staking", !noStaking).
+		Bool("upgrade", !noUpgrade).
+		Msg("cosmos modules features status")
 
 	// Parse validators into name & address
 	trackedValidators, err := createTrackedValidators(ctx, pool, validators, noStaking)
