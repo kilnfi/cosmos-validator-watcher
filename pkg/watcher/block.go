@@ -206,7 +206,7 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 		if w.latestBlockProposer == res.Address {
 			// Check if this is an empty block
 			if w.latestBlockTransactions == 0 {
-				icon = "🟠"
+				icon = "🟡"
 				w.metrics.EmptyBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			} else {
 				icon = "👑"
