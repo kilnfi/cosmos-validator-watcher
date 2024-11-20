@@ -31,6 +31,7 @@ type Metrics struct {
 	SoloMissedBlocks        *prometheus.CounterVec
 	ConsecutiveMissedBlocks *prometheus.GaugeVec
 	MissedBlocksWindow      *prometheus.GaugeVec
+	EmptyBlocks             *prometheus.CounterVec
 	Tokens                  *prometheus.GaugeVec
 	IsBonded                *prometheus.GaugeVec
 	IsJailed                *prometheus.GaugeVec
@@ -122,6 +123,14 @@ func New(namespace string) *Metrics {
 				Namespace: namespace,
 				Name:      "missed_blocks_window",
 				Help:      "Number of missed blocks per validator for the current signing window (for a bonded validator)",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		EmptyBlocks: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "empty_blocks",
+				Help:      "Number of empty blocks proposed by validator",
 			},
 			[]string{"chain_id", "address", "name"},
 		),
@@ -280,6 +289,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.SoloMissedBlocks)
 	m.Registry.MustRegister(m.ConsecutiveMissedBlocks)
 	m.Registry.MustRegister(m.MissedBlocksWindow)
+	m.Registry.MustRegister(m.EmptyBlocks)
 	m.Registry.MustRegister(m.TrackedBlocks)
 	m.Registry.MustRegister(m.Transactions)
 	m.Registry.MustRegister(m.SkippedBlocks)
