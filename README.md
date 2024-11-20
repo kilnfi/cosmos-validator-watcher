@@ -116,6 +116,7 @@ Metrics (without prefix)        | Description
 `node_synced`                   | Set to 1 is the node is synced (ie. not catching-up)
 `proposal_end_time`             | Timestamp of the voting end time of a proposal
 `proposed_blocks`               | Number of proposed blocks per validator (for a bonded validator)
+`empty_blocks`                  | Number of empty blocks (blocks with zero transactions) proposed by validator
 `rank`                          | Rank of the validator
 `seat_price`                    | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
 `signed_blocks_window`          | Number of blocks per signing window
