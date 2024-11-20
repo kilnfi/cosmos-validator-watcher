@@ -177,12 +177,13 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 		return
 	}
 
-	// Ensure to inititalize counters for each validator
+	// Ensure to initialize counters for each validator
 	for _, val := range w.trackedValidators {
 		w.metrics.ValidatedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.MissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.SoloMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
 		w.metrics.ConsecutiveMissedBlocks.WithLabelValues(chainId, val.Address, val.Name)
+		w.metrics.EmptyBlocks.WithLabelValues(chainId, val.Address, val.Name)
 	}
 	w.metrics.SkippedBlocks.WithLabelValues(chainId)
 
@@ -202,10 +203,19 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 	for _, res := range block.ValidatorStatus {
 		icon := "⚪️"
 		if w.latestBlockProposer == res.Address {
-			icon = "👑"
+			if block.Transactions == 0 {
+				icon = "🫧"
+			} else {
+				icon = "👑"
+			}
 			w.metrics.ProposedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			w.metrics.ConsecutiveMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Set(0)
+			
+			// Check if this is an empty block
+			if block.Transactions == 0 {
+				w.metrics.EmptyBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
+			}
 		} else if res.Signed {
 			icon = "✅"
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
