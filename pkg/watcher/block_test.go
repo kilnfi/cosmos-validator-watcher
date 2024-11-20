@@ -103,7 +103,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           44,
-				Transactions:     7,
+				Transactions:     0,
 				TotalValidators:  2,
 				SignedValidators: 2,
 				ProposerAddress:  kilnAddress,
@@ -120,7 +120,7 @@ func TestBlockWatcher(t *testing.T) {
 			{
 				ChainID:          chainID,
 				Height:           45,
-				Transactions:     0,
+				Transactions:     7,
 				TotalValidators:  2,
 				SignedValidators: 2,
 				ValidatorStatus: []ValidatorStatus{
@@ -161,11 +161,12 @@ func TestBlockWatcher(t *testing.T) {
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.MissedBlocks))
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.SoloMissedBlocks))
 		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.ConsecutiveMissedBlocks))
-		assert.Equal(t, float64(1), testutil.ToFloat64(blockWatcher.metrics.EmptyBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
+		assert.Equal(t, 1, testutil.CollectAndCount(blockWatcher.metrics.EmptyBlocks))
 		assert.Equal(t, float64(2), testutil.ToFloat64(blockWatcher.metrics.ProposedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(4), testutil.ToFloat64(blockWatcher.metrics.ValidatedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(1), testutil.ToFloat64(blockWatcher.metrics.MissedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(0), testutil.ToFloat64(blockWatcher.metrics.SoloMissedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 		assert.Equal(t, float64(0), testutil.ToFloat64(blockWatcher.metrics.ConsecutiveMissedBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
+		assert.Equal(t, float64(1), testutil.ToFloat64(blockWatcher.metrics.EmptyBlocks.WithLabelValues(chainID, kilnAddress, kilnName)))
 	})
 }

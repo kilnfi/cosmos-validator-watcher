@@ -31,6 +31,7 @@ type BlockWatcher struct {
 	validatorSet        atomic.Value // []*types.Validator
 	latestBlockHeight   int64
 	latestBlockProposer string
+	latestBlockTransactions int
 	webhook             *webhook.Webhook
 	customWebhooks      []BlockWebhook
 }
@@ -203,19 +204,16 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 	for _, res := range block.ValidatorStatus {
 		icon := "⚪️"
 		if w.latestBlockProposer == res.Address {
-			if block.Transactions == 0 {
+			// Check if this is an empty block
+			if w.latestBlockTransactions == 0 {
 				icon = "🫧"
+				w.metrics.EmptyBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			} else {
 				icon = "👑"
 			}
 			w.metrics.ProposedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
 			w.metrics.ConsecutiveMissedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Set(0)
-			
-			// Check if this is an empty block
-			if block.Transactions == 0 {
-				w.metrics.EmptyBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
-			}
 		} else if res.Signed {
 			icon = "✅"
 			w.metrics.ValidatedBlocks.WithLabelValues(block.ChainID, res.Address, res.Label).Inc()
@@ -245,6 +243,7 @@ func (w *BlockWatcher) handleBlockInfo(ctx context.Context, block *BlockInfo) {
 
 	w.latestBlockHeight = block.Height
 	w.latestBlockProposer = block.ProposerAddress
+	w.latestBlockTransactions = block.Transactions
 }
 
 func (w *BlockWatcher) computeValidatorStatus(block *types.Block) []ValidatorStatus {
