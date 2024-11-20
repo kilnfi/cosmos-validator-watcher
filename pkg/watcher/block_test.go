@@ -146,7 +146,7 @@ func TestBlockWatcher(t *testing.T) {
 				`#41   1/2 validators ✅ Kiln`,
 				`#42   2/2 validators ✅ Kiln`,
 				`#43   2/2 validators 👑 Kiln`,
-				`#44   2/2 validators 🫧 Kiln`,
+				`#44   2/2 validators 🟡 Kiln`,
 			}, "\n")+"\n",
 			blockWatcher.writer.(*bytes.Buffer).String(),
 		)
