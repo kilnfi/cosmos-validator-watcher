@@ -107,16 +107,16 @@ Metrics (without prefix)        | Description
 `commission`                    | Earned validator commission
 `consecutive_missed_blocks`     | Number of consecutive missed blocks per validator (for a bonded validator)
 `downtime_jail_duration`        | Duration of the jail period for a validator in seconds
+`empty_blocks`                  | Number of empty blocks (blocks with zero transactions) proposed by validator
 `is_bonded`                     | Set to 1 if the validator is bonded
 `is_jailed`                     | Set to 1 if the validator is jailed
 `min_signed_blocks_per_window`  | Minimum number of blocks required to be signed per signing window
-`missed_blocks`                 | Number of missed blocks per validator (for a bonded validator)
 `missed_blocks_window`          | Number of missed blocks per validator for the current signing window (for a bonded validator)
+`missed_blocks`                 | Number of missed blocks per validator (for a bonded validator)
 `node_block_height`             | Latest fetched block height for each node
 `node_synced`                   | Set to 1 is the node is synced (ie. not catching-up)
 `proposal_end_time`             | Timestamp of the voting end time of a proposal
 `proposed_blocks`               | Number of proposed blocks per validator (for a bonded validator)
-`empty_blocks`                  | Number of empty blocks (blocks with zero transactions) proposed by validator
 `rank`                          | Rank of the validator
 `seat_price`                    | Min seat price to be in the active set (ie. bonded tokens of the latest validator)
 `signed_blocks_window`          | Number of blocks per signing window
