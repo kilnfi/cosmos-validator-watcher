@@ -81,6 +81,10 @@ var Flags = []cli.Flag{
 		Name:  "validator",
 		Usage: "validator address(es) to track (use :my-label to add a custom label in metrics & ouput)",
 	},
+	&cli.BoolFlag{
+		Name:  "enable-all-validators",
+		Usage: "enable to track all validators in the pool. (to track every validators, the chain should have staking module)",
+	},
 	&cli.StringFlag{
 		Name:  "webhook-url",
 		Usage: "endpoint where to send upgrade webhooks (experimental)",
