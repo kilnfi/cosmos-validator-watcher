@@ -83,7 +83,7 @@ var Flags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  "enable-all-validators",
-		Usage: "enable to track all validators in the pool.",
+		Usage: "enable to track all validators in the pool. (to track every validators, the chain should have staking module)",
 	},
 	&cli.StringFlag{
 		Name:  "webhook-url",
