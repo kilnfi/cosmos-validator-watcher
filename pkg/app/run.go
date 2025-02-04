@@ -387,7 +387,7 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 		log.Info().Msg("tracking all validators")
 
 		trackedValidators = lo.Map(stakingValidators, func(stakingVal staking.Validator, index int) watcher.TrackedValidator {
-			val := watcher.ParseValidator(crypto.PubKeyAddress(stakingVal.ConsensusPubkey))
+			val := watcher.ParseValidator(fmt.Sprintf("%s:%s", crypto.PubKeyAddress(stakingVal.ConsensusPubkey), stakingVal.Description.Moniker))
 			hrp := crypto.GetHrpPrefix(stakingVal.OperatorAddress) + "valcons"
 			val.Moniker = stakingVal.Description.Moniker
 			val.OperatorAddress = stakingVal.OperatorAddress
