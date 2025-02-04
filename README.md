@@ -81,6 +81,7 @@ GLOBAL OPTIONS:
    --start-timeout value                                          timeout to wait on startup for one node to be ready (default: 10s)
    --stop-timeout value                                           timeout to wait on stop (default: 10s)
    --validator value [ --validator value ]                        validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
+   --enable-all-validators                                        enable to track all validators in the pool. (to track every validators, the chain should have staking module)
    --webhook-url value                                            endpoint where to send upgrade webhooks (experimental)
    --webhook-custom-block value [ --webhook-custom-block value ]  trigger a custom webhook at a given block number (experimental)
    --x-gov value                                                  version of the gov module to use (v1|v1beta1) (default: "v1")
