@@ -1,5 +1,5 @@
 # Builder
-FROM golang:1.22-alpine3.18 as builder
+FROM golang:1.23-alpine3.21 as builder
 
 ARG VERSION="0.0.0-build"
 ENV VERSION=$VERSION
@@ -19,7 +19,7 @@ COPY . ./
 RUN make build
 
 # Final image
-FROM alpine:3.18
+FROM alpine:3.21
 RUN apk upgrade && apk add --no-cache bash curl
 
 RUN addgroup -g 1001 app

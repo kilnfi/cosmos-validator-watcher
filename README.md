@@ -64,25 +64,27 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --babylon                                                      enable babylon watcher (checkpoint votes & finality providers) (default: false)
    --chain-id value                                               to ensure all nodes matches the specific network (dismiss to auto-detected)
-   --http-addr value                                              http server address (default: ":8080")
-   --log-level value                                              log level (debug, info, warn, error) (default: "info")
    --debug                                                        shortcut for --log-level=debug (default: false)
-   --namespace value                                              namespace for Prometheus metrics (default: "cosmos_validator_watcher")
-   --no-color                                                     disable colored output (default: false)
-   --node value [ --node value ]                                  rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
-   --no-gov                                                       disable calls to gov module (useful for consumer chains) (default: false)
-   --no-staking                                                   disable calls to staking module (useful for consumer chains) (default: false)
-   --no-slashing                                                  disable calls to slashing module (default: false)
-   --no-commission                                                disable calls to get validator commission (useful for chains without distribution module) (default: false)
-   --no-upgrade                                                   disable calls to upgrade module (for chains created without the upgrade module) (default: false)
    --denom value                                                  denom used in metrics label (eg. atom or uatom)
    --denom-exponent value                                         denom exponent (eg. 6 for atom, 1 for uatom) (default: 0)
+   --finality-provider value [ --finality-provider value ]        list of finality providers to watch (requires --babylon)
+   --http-addr value                                              http server address (default: ":8080")
+   --log-level value                                              log level (debug, info, warn, error) (default: "info")
+   --namespace value                                              namespace for Prometheus metrics (default: "cosmos_validator_watcher")
+   --no-color                                                     disable colored output (default: false)
+   --no-commission                                                disable calls to get validator commission (useful for chains without distribution module) (default: false)
+   --no-gov                                                       disable calls to gov module (useful for consumer chains) (default: false)
+   --no-slashing                                                  disable calls to slashing module (default: false)
+   --no-staking                                                   disable calls to staking module (useful for consumer chains) (default: false)
+   --no-upgrade                                                   disable calls to upgrade module (for chains created without the upgrade module) (default: false)
+   --node value [ --node value ]                                  rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
    --start-timeout value                                          timeout to wait on startup for one node to be ready (default: 10s)
    --stop-timeout value                                           timeout to wait on stop (default: 10s)
    --validator value [ --validator value ]                        validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
-   --webhook-url value                                            endpoint where to send upgrade webhooks (experimental)
    --webhook-custom-block value [ --webhook-custom-block value ]  trigger a custom webhook at a given block number (experimental)
+   --webhook-url value                                            endpoint where to send upgrade webhooks (experimental)
    --x-gov value                                                  version of the gov module to use (v1|v1beta1) (default: "v1")
    --help, -h                                                     show help
    --version, -v                                                  print the version
@@ -130,6 +132,26 @@ Metrics (without prefix)        | Description
 `upgrade_plan`                  | Block height of the upcoming upgrade (hard fork)
 `validated_blocks`              | Number of validated blocks per validator (for a bonded validator)
 `vote`                          | Set to 1 if the validator has voted on a proposal
+
+
+### Chain specific metrics
+
+**Babylon** (requires the `--babylon` flag).
+
+Metrics (without prefix)                      | Description
+----------------------------------------------|-------------------------------------------------------------------------
+`babylon_epoch`                               | Babylon epoch
+`babylon_checkpoint_vote`                     | Count of checkpoint votes since start (equal to number of epochs)
+`babylon_committed_checkpoint_vote`           | Number of committed checkpoint votes for a validator
+`babylon_missed_checkpoint_vote`              | Number of missed checkpoint votes for a validator
+`babylon_consecutive_missed_checkpoint_vote`  | Number of consecutive missed checkpoint votes for a validator
+`babylon_finality_votes`                      | Count of total finality provider slots since start
+`babylon_committed_finality_votes`            | Number of votes for a finality provider
+`babylon_missed_finality_votes`               | Number of missed votes for a finality provider
+`babylon_consecutive_missed_finality_votes`   | Number of consecutive missed votes for a finality provider
+
+
+### Grafana dashboard
 
 For an example of a Prometheus and Grafana dashboard setup using Docker Compose, you can refer to [21state/cosmos-watcher-stack](https://github.com/21state/cosmos-watcher-stack/).
 

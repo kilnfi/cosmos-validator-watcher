@@ -38,6 +38,17 @@ type Metrics struct {
 	Commission              *prometheus.GaugeVec
 	Vote                    *prometheus.GaugeVec
 
+	// Babylon metrics
+	BabylonEpoch                           *prometheus.GaugeVec
+	BabylonCheckpointVote                  *prometheus.CounterVec
+	BabylonCommittedCheckpointVote         *prometheus.CounterVec
+	BabylonMissedCheckpointVote            *prometheus.CounterVec
+	BabylonConsecutiveMissedCheckpointVote *prometheus.GaugeVec
+	BabylonFinalityVotes                   *prometheus.CounterVec
+	BabylonCommittedFinalityVotes          *prometheus.CounterVec
+	BabylonMissedFinalityVotes             *prometheus.CounterVec
+	BabylonConsecutiveMissedFinalityVotes  *prometheus.GaugeVec
+
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
 	NodeSynced      *prometheus.GaugeVec
@@ -270,6 +281,78 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id"},
 		),
+		BabylonEpoch: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "babylon_epoch",
+				Help:      "Babylon epoch",
+			},
+			[]string{"chain_id"},
+		),
+		BabylonCheckpointVote: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_checkpoint_vote",
+				Help:      "Count of checkpoint votes since start (equal to number of epochs)",
+			},
+			[]string{"chain_id"},
+		),
+		BabylonCommittedCheckpointVote: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_committed_checkpoint_vote",
+				Help:      "Number of committed checkpoint votes for a validator",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		BabylonMissedCheckpointVote: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_missed_checkpoint_vote",
+				Help:      "Number of missed checkpoint votes for a validator",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		BabylonConsecutiveMissedCheckpointVote: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "babylon_consecutive_missed_checkpoint_vote",
+				Help:      "Number of consecutive missed checkpoint votes for a validator",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		BabylonFinalityVotes: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_finality_votes",
+				Help:      "Count of total finality provider slots since start",
+			},
+			[]string{"chain_id"},
+		),
+		BabylonCommittedFinalityVotes: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_committed_finality_votes",
+				Help:      "Number of votes for a finality provider",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		BabylonMissedFinalityVotes: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "babylon_missed_finality_votes",
+				Help:      "Number of missed votes for a finality provider",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		BabylonConsecutiveMissedFinalityVotes: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "babylon_consecutive_missed_finality_votes",
+				Help:      "Number of consecutive missed votes for a finality provider",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
 	}
 
 	return metrics
@@ -307,4 +390,12 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.DowntimeJailDuration)
 	m.Registry.MustRegister(m.SlashFractionDoubleSign)
 	m.Registry.MustRegister(m.SlashFractionDowntime)
+	m.Registry.MustRegister(m.BabylonEpoch)
+	m.Registry.MustRegister(m.BabylonCheckpointVote)
+	m.Registry.MustRegister(m.BabylonCommittedCheckpointVote)
+	m.Registry.MustRegister(m.BabylonMissedCheckpointVote)
+	m.Registry.MustRegister(m.BabylonConsecutiveMissedCheckpointVote)
+	m.Registry.MustRegister(m.BabylonFinalityVotes)
+	m.Registry.MustRegister(m.BabylonMissedFinalityVotes)
+	m.Registry.MustRegister(m.BabylonConsecutiveMissedFinalityVotes)
 }

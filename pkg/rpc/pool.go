@@ -82,3 +82,21 @@ func (p *Pool) GetSyncedNode() *Node {
 	}
 	return nil
 }
+
+func (p *Pool) OnNodeStart(callback OnNodeStart) {
+	for _, n := range p.Nodes {
+		n.onStart = append(n.onStart, callback)
+	}
+}
+
+func (p *Pool) OnNodeStatus(callback OnNodeStatus) {
+	for _, n := range p.Nodes {
+		n.onStatus = append(n.onStatus, callback)
+	}
+}
+
+func (p *Pool) OnNodeEvent(eventType string, callback OnNodeEvent) {
+	for _, n := range p.Nodes {
+		n.onEvent[eventType] = append(n.onEvent[eventType], callback)
+	}
+}
