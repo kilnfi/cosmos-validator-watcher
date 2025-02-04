@@ -50,6 +50,7 @@ func RunFunc(cCtx *cli.Context) error {
 		startTimeout        = cCtx.Duration("start-timeout")
 		stopTimeout         = cCtx.Duration("stop-timeout")
 		validators          = cCtx.StringSlice("validator")
+		enableAllValidators = cCtx.Bool("enable-all-validators")
 		webhookURL          = cCtx.String("webhook-url")
 		webhookCustomBlocks = cCtx.StringSlice("webhook-custom-block")
 		xGov                = cCtx.String("x-gov")
@@ -106,7 +107,7 @@ func RunFunc(cCtx *cli.Context) error {
 		Msg("cosmos modules features status")
 
 	// Parse validators into name & address
-	trackedValidators, err := createTrackedValidators(ctx, pool, validators, noStaking)
+	trackedValidators, err := createTrackedValidators(ctx, pool, validators, noStaking, enableAllValidators)
 	if err != nil {
 		return err
 	}
@@ -362,7 +363,7 @@ func ensureCosmosModule(name string, modules []*upgrade.ModuleVersion) bool {
 	return false
 }
 
-func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []string, noStaking bool) ([]watcher.TrackedValidator, error) {
+func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []string, noStaking, trackAll bool) ([]watcher.TrackedValidator, error) {
 	var stakingValidators []staking.Validator
 	if !noStaking {
 		node := pool.GetSyncedNode()
@@ -380,35 +381,65 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 		stakingValidators = resp.Validators
 	}
 
-	trackedValidators := lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
-		val := watcher.ParseValidator(v)
+	var trackedValidators []watcher.TrackedValidator
 
-		for _, stakingVal := range stakingValidators {
-			address := crypto.PubKeyAddress(stakingVal.ConsensusPubkey)
-			if address == val.Address {
-				hrp := crypto.GetHrpPrefix(stakingVal.OperatorAddress) + "valcons"
-				val.Moniker = stakingVal.Description.Moniker
-				val.OperatorAddress = stakingVal.OperatorAddress
-				val.ConsensusAddress = crypto.PubKeyBech32Address(stakingVal.ConsensusPubkey, hrp)
+	if trackAll {
+		log.Info().Msg("tracking all validators")
+
+		trackedValidators = lo.Map(stakingValidators, func(stakingVal staking.Validator, index int) watcher.TrackedValidator {
+			val := watcher.ParseValidator(crypto.PubKeyAddress(stakingVal.ConsensusPubkey))
+			hrp := crypto.GetHrpPrefix(stakingVal.OperatorAddress) + "valcons"
+			val.Moniker = stakingVal.Description.Moniker
+			val.OperatorAddress = stakingVal.OperatorAddress
+			val.ConsensusAddress = crypto.PubKeyBech32Address(stakingVal.ConsensusPubkey, hrp)
+
+			log.Info().
+				Str("alias", val.Name).
+				Str("moniker", val.Moniker).
+				Msgf("tracking validator %s", val.Address)
+
+			log.Debug().
+				Str("account", val.AccountAddress()).
+				Str("address", val.Address).
+				Str("alias", val.Name).
+				Str("moniker", val.Moniker).
+				Str("operator", val.OperatorAddress).
+				Str("consensus", val.ConsensusAddress).
+				Msgf("validator info")
+
+			return val
+		})
+	} else {
+		trackedValidators = lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
+			val := watcher.ParseValidator(v)
+
+			for _, stakingVal := range stakingValidators {
+				address := crypto.PubKeyAddress(stakingVal.ConsensusPubkey)
+				if address == val.Address {
+					hrp := crypto.GetHrpPrefix(stakingVal.OperatorAddress) + "valcons"
+					val.Moniker = stakingVal.Description.Moniker
+					val.OperatorAddress = stakingVal.OperatorAddress
+					val.ConsensusAddress = crypto.PubKeyBech32Address(stakingVal.ConsensusPubkey, hrp)
+				}
 			}
-		}
 
-		log.Info().
-			Str("alias", val.Name).
-			Str("moniker", val.Moniker).
-			Msgf("tracking validator %s", val.Address)
+			log.Info().
+				Str("alias", val.Name).
+				Str("moniker", val.Moniker).
+				Msgf("tracking validator %s", val.Address)
 
-		log.Debug().
-			Str("account", val.AccountAddress()).
-			Str("address", val.Address).
-			Str("alias", val.Name).
-			Str("moniker", val.Moniker).
-			Str("operator", val.OperatorAddress).
-			Str("consensus", val.ConsensusAddress).
-			Msgf("validator info")
+			log.Debug().
+				Str("account", val.AccountAddress()).
+				Str("address", val.Address).
+				Str("alias", val.Name).
+				Str("moniker", val.Moniker).
+				Str("operator", val.OperatorAddress).
+				Str("consensus", val.ConsensusAddress).
+				Msgf("validator info")
 
-		return val
-	})
+			return val
+		})
+	}
 
 	return trackedValidators, nil
 }
