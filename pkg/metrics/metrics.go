@@ -396,6 +396,7 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.BabylonMissedCheckpointVote)
 	m.Registry.MustRegister(m.BabylonConsecutiveMissedCheckpointVote)
 	m.Registry.MustRegister(m.BabylonFinalityVotes)
+	m.Registry.MustRegister(m.BabylonCommittedFinalityVotes)
 	m.Registry.MustRegister(m.BabylonMissedFinalityVotes)
 	m.Registry.MustRegister(m.BabylonConsecutiveMissedFinalityVotes)
 }
