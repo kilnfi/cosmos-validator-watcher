@@ -16,7 +16,6 @@ import (
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
-	_ "github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/watcher"
@@ -53,6 +52,10 @@ func RunFunc(cCtx *cli.Context) error {
 		webhookURL          = cCtx.String("webhook-url")
 		webhookCustomBlocks = cCtx.StringSlice("webhook-custom-block")
 		xGov                = cCtx.String("x-gov")
+
+		// Babylon specific flags
+		babylonEnabled    = cCtx.Bool("babylon")
+		finalityProviders = cCtx.StringSlice("finality-provider")
 	)
 
 	//
@@ -152,6 +155,16 @@ func RunFunc(cCtx *cli.Context) error {
 			return commissionWatcher.Start(ctx)
 		})
 	}
+	if babylonEnabled {
+		finalityProviders := lo.Map(finalityProviders, func(val string, _ int) watcher.BabylonFinalityProvider {
+			return watcher.ParseBabylonFinalityProvider(val)
+		})
+		babylonWatcher := watcher.NewBabylonWatcher(trackedValidators, finalityProviders, pool, metrics, os.Stdout)
+		errg.Go(func() error {
+			return babylonWatcher.Start(ctx)
+		})
+		pool.OnNodeEvent(rpc.EventNewBlock, babylonWatcher.OnNewBlock)
+	}
 
 	//
 	// Slashing watchers
@@ -203,14 +216,11 @@ func RunFunc(cCtx *cli.Context) error {
 	//
 	// Register watchers on nodes events
 	//
-	for _, node := range pool.Nodes {
-		node.OnStart(blockWatcher.OnNodeStart)
-		node.OnStatus(statusWatcher.OnNodeStatus)
-		node.OnEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
-
-		if upgradeWatcher != nil {
-			node.OnEvent(rpc.EventNewBlock, upgradeWatcher.OnNewBlock)
-		}
+	pool.OnNodeStart(blockWatcher.OnNodeStart)
+	pool.OnNodeStatus(statusWatcher.OnNodeStatus)
+	pool.OnNodeEvent(rpc.EventNewBlock, blockWatcher.OnNewBlock)
+	if upgradeWatcher != nil {
+		pool.OnNodeEvent(rpc.EventNewBlock, upgradeWatcher.OnNewBlock)
 	}
 
 	//
