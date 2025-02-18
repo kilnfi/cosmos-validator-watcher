@@ -231,7 +231,7 @@ func New(namespace string) *Metrics {
 				Name:      "upgrade_plan",
 				Help:      "Block height of the upcoming upgrade (hard fork)",
 			},
-			[]string{"chain_id", "version"},
+			[]string{"chain_id", "version", "block"},
 		),
 		ProposalEndTime: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{

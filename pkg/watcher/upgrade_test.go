@@ -30,7 +30,7 @@ func TestUpgradeWatcher(t *testing.T) {
 			Height: blockHeight,
 		})
 
-		assert.Equal(t, float64(123456789), testutil.ToFloat64(watcher.metrics.UpgradePlan.WithLabelValues(chainID, version)))
+		assert.Equal(t, float64(123456789), testutil.ToFloat64(watcher.metrics.UpgradePlan.WithLabelValues(chainID, version, "123456789")))
 	})
 
 	t.Run("Handle No Upgrade Plan", func(t *testing.T) {
