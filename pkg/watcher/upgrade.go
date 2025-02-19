@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"cosmossdk.io/x/upgrade/types"
+	upgrade "cosmossdk.io/x/upgrade/types"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govbeta "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
-	"cosmossdk.io/x/upgrade/types"
-	upgrade "cosmossdk.io/x/upgrade/types"
 	"github.com/gogo/protobuf/codec"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/metrics"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/rpc"
@@ -242,6 +242,6 @@ func (w *UpgradeWatcher) handleUpgradePlan(chainID string, plan *upgrade.Plan) {
 	if plan == nil {
 		w.metrics.UpgradePlan.Reset()
 	} else {
-		w.metrics.UpgradePlan.WithLabelValues(chainID, plan.Name).Set(float64(plan.Height))
+		w.metrics.UpgradePlan.WithLabelValues(chainID, plan.Name, fmt.Sprintf("%d", plan.Height)).Set(float64(plan.Height))
 	}
 }
