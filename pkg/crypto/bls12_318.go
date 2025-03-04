@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	PubKeyName = "cometbft/PubKeyBls12_381"
+	Bls12PubKeyName = "cometbft/PubKeyBls12_381"
 )
 
 func init() {
-	cmtjson.RegisterType(Bls12PubKey{}, PubKeyName)
+	cmtjson.RegisterType(Bls12PubKey{}, Bls12PubKeyName)
 }
 
 var _ crypto.PubKey = Bls12PubKey{}
