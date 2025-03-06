@@ -53,6 +53,9 @@ func RunFunc(cCtx *cli.Context) error {
 		webhookURL          = cCtx.String("webhook-url")
 		webhookCustomBlocks = cCtx.StringSlice("webhook-custom-block")
 		xGov                = cCtx.String("x-gov")
+
+		// Lombard specific flags
+		lombardEnabled = cCtx.Bool("lombard")
 	)
 
 	//
@@ -150,6 +153,12 @@ func RunFunc(cCtx *cli.Context) error {
 		commissionWatcher := watcher.NewCommissionsWatcher(trackedValidators, metrics, pool)
 		errg.Go(func() error {
 			return commissionWatcher.Start(ctx)
+		})
+	}
+	if lombardEnabled {
+		lombardWatcher := watcher.NewLombardWatcher(trackedValidators, pool, metrics)
+		errg.Go(func() error {
+			return lombardWatcher.Start(ctx)
 		})
 	}
 

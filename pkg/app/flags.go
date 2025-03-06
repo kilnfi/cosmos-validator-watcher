@@ -1,6 +1,7 @@
 package app
 
 import (
+	"sort"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -94,4 +95,22 @@ var Flags = []cli.Flag{
 		Usage: "version of the gov module to use (v1|v1beta1)",
 		Value: "v1",
 	},
+	&cli.BoolFlag{
+		Name:  "babylon",
+		Usage: "enable Babylon watcher (checkpoint votes & finality providers)",
+	},
+	&cli.StringSliceFlag{
+		Name:  "finality-provider",
+		Usage: "list of finality providers to watch (requires --babylon)",
+	},
+	&cli.BoolFlag{
+		Name:  "lombard",
+		Usage: "enable Lombard watcher (check notary sessions)",
+	},
+}
+
+func init() {
+	sort.SliceStable(Flags, func(i, j int) bool {
+		return Flags[i].Names()[0] < Flags[j].Names()[0]
+	})
 }

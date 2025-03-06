@@ -38,6 +38,13 @@ type Metrics struct {
 	Commission              *prometheus.GaugeVec
 	Vote                    *prometheus.GaugeVec
 
+	// Lombard metrics
+	LombardEpoch                             *prometheus.GaugeVec
+	LombardNotarySessionId                   *prometheus.GaugeVec
+	LombardNotaryProducedSignatures          *prometheus.CounterVec
+	LombardNotaryMissedSignatures            *prometheus.CounterVec
+	LombardNotaryConsecutiveMissedSignatures *prometheus.GaugeVec
+
 	// Node metrics
 	NodeBlockHeight *prometheus.GaugeVec
 	NodeSynced      *prometheus.GaugeVec
@@ -270,6 +277,46 @@ func New(namespace string) *Metrics {
 			},
 			[]string{"chain_id"},
 		),
+		LombardEpoch: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "lombard_epoch",
+				Help:      "Current epoch of the Lombard chain",
+			},
+			[]string{"chain_id"},
+		),
+		LombardNotarySessionId: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "lombard_notary_session_id",
+				Help:      "Current notary session ID of the Lombard chain",
+			},
+			[]string{"chain_id"},
+		),
+		LombardNotaryProducedSignatures: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "lombard_notary_produced_signatures",
+				Help:      "Number of produced signatures per notary session",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		LombardNotaryMissedSignatures: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "lombard_notary_missed_signatures",
+				Help:      "Number of missed signatures per notary session",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
+		LombardNotaryConsecutiveMissedSignatures: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "lombard_notary_consecutive_missed_signatures",
+				Help:      "Number of consecutive missed signatures per notary session",
+			},
+			[]string{"chain_id", "address", "name"},
+		),
 	}
 
 	return metrics
@@ -307,4 +354,9 @@ func (m *Metrics) Register() {
 	m.Registry.MustRegister(m.DowntimeJailDuration)
 	m.Registry.MustRegister(m.SlashFractionDoubleSign)
 	m.Registry.MustRegister(m.SlashFractionDowntime)
+	m.Registry.MustRegister(m.LombardEpoch)
+	m.Registry.MustRegister(m.LombardNotarySessionId)
+	m.Registry.MustRegister(m.LombardNotaryProducedSignatures)
+	m.Registry.MustRegister(m.LombardNotaryMissedSignatures)
+	m.Registry.MustRegister(m.LombardNotaryConsecutiveMissedSignatures)
 }
