@@ -11,6 +11,7 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	query "github.com/cosmos/cosmos-sdk/types/query"
 	gov "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govbeta "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	"github.com/gogo/protobuf/codec"
@@ -163,6 +164,10 @@ func (w *UpgradeWatcher) checkUpgradeProposalsV1(ctx context.Context, node *rpc.
 	// Fetch all proposals in voting period
 	proposalsResp, err := queryClient.Proposals(ctx, &gov.QueryProposalsRequest{
 		ProposalStatus: gov.StatusVotingPeriod,
+		Pagination: &query.PageRequest{
+			Reverse: true,
+			Limit:   100,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proposals: %w", err)
