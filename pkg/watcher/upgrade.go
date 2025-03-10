@@ -67,6 +67,16 @@ func (w *UpgradeWatcher) Start(ctx context.Context) error {
 }
 
 func (w *UpgradeWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ctypes.ResultEvent) error {
+	blockEvent := evt.Data.(comettypes.EventDataNewBlock)
+	block := blockEvent.Block
+
+	// Skip already processed blocks
+	if w.latestBlockHeight >= block.Height {
+		return nil
+	}
+
+	w.latestBlockHeight = block.Height
+
 	// Ignore is webhook is not configured
 	if w.webhook == nil {
 		return nil
@@ -82,18 +92,8 @@ func (w *UpgradeWatcher) OnNewBlock(ctx context.Context, node *rpc.Node, evt *ct
 		return nil
 	}
 
-	blockEvent := evt.Data.(comettypes.EventDataNewBlock)
-	block := blockEvent.Block
-
-	// Skip already processed blocks
-	if w.latestBlockHeight >= block.Height {
-		return nil
-	}
-
-	w.latestBlockHeight = block.Height
-
 	// Ignore if upgrade plan is for a future block
-	if block.Height < w.nextUpgradePlan.Height-1 {
+	if w.latestBlockHeight < w.nextUpgradePlan.Height-1 {
 		return nil
 	}
 
@@ -174,7 +174,7 @@ func (w *UpgradeWatcher) checkUpgradeProposalsV1(ctx context.Context, node *rpc.
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract upgrade plan: %w", err)
 			}
-			if plan != nil {
+			if plan != nil && plan.Height > w.latestBlockHeight {
 				return plan, nil
 			}
 		}
@@ -200,7 +200,7 @@ func (w *UpgradeWatcher) checkUpgradeProposalsV1Beta1(ctx context.Context, node 
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract upgrade plan: %w", err)
 		}
-		if plan != nil {
+		if plan != nil && plan.Height > w.latestBlockHeight {
 			return plan, nil
 		}
 	}
