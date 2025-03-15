@@ -82,7 +82,7 @@ GLOBAL OPTIONS:
    --node value [ --node value ]                                  rpc node endpoint to connect to (specify multiple for high availability) (default: "http://localhost:26657")
    --start-timeout value                                          timeout to wait on startup for one node to be ready (default: 10s)
    --stop-timeout value                                           timeout to wait on stop (default: 10s)
-   --validator value [ --validator value ]                        validator address(es) to track (use :my-label to add a custom label in metrics & ouput)
+   --validator value [ --validator value ]                        validator address(es) to track (use :my-label to add a custom label in metrics & output)
    --webhook-custom-block value [ --webhook-custom-block value ]  trigger a custom webhook at a given block number (experimental)
    --webhook-url value                                            endpoint where to send upgrade webhooks (experimental)
    --x-gov value                                                  version of the gov module to use (v1|v1beta1) (default: "v1")

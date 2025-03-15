@@ -80,7 +80,7 @@ var Flags = []cli.Flag{
 	},
 	&cli.StringSliceFlag{
 		Name:  "validator",
-		Usage: "validator address(es) to track (use :my-label to add a custom label in metrics & ouput)",
+		Usage: "validator address(es) to track (use :my-label to add a custom label in metrics & output)",
 	},
 	&cli.StringFlag{
 		Name:  "webhook-url",
