@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"cosmossdk.io/x/upgrade/types"
 	upgrade "cosmossdk.io/x/upgrade/types"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
@@ -222,7 +221,7 @@ func extractUpgradePlan(content *codectypes.Any) (*upgrade.Plan, error) {
 
 	switch content.TypeUrl {
 	case "/cosmos.upgrade.v1beta1.SoftwareUpgradeProposal":
-		var upgrade types.SoftwareUpgradeProposal
+		var upgrade upgrade.SoftwareUpgradeProposal
 		err := cdc.Unmarshal(content.Value, &upgrade)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
@@ -230,7 +229,7 @@ func extractUpgradePlan(content *codectypes.Any) (*upgrade.Plan, error) {
 		return &upgrade.Plan, nil
 
 	case "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade":
-		var upgrade types.MsgSoftwareUpgrade
+		var upgrade upgrade.MsgSoftwareUpgrade
 		err := cdc.Unmarshal(content.Value, &upgrade)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal software upgrade proposal: %w", err)
