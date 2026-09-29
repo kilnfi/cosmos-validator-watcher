@@ -11,6 +11,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	"github.com/cometbft/cometbft/types"
 	"github.com/rs/zerolog/log"
 )
@@ -54,6 +55,13 @@ type Node struct {
 	started       chan struct{}
 	startedOnce   sync.Once
 	subscriptions map[string]<-chan ctypes.ResultEvent
+
+	// Set once a node is known to need the evidence-tolerant block decoding
+	// implemented in block_compat.go.
+	compatBlocks atomic.Bool
+	compatClient *jsonrpcclient.Client
+	compatErr    error
+	compatOnce   sync.Once
 }
 
 func NewNode(client *http.HTTP, options ...NodeOption) *Node {
@@ -298,13 +306,12 @@ func (n *Node) syncBlocks(ctx context.Context) {
 	log := log.With().Str("node", n.Redacted()).Logger()
 
 	// Fetch latest block
-	currentBlockResp, err := n.Client.Block(ctx, nil)
+	currentBlock, err := n.FetchBlock(ctx, nil)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to sync with latest block")
 		return
 	}
 
-	currentBlock := currentBlockResp.Block
 	if currentBlock == nil {
 		log.Error().Err(err).Msgf("no block returned when requesting latest block")
 		return
@@ -324,16 +331,19 @@ func (n *Node) syncBlocks(ctx context.Context) {
 
 	// Fetch all skipped blocks since latest known block
 	for height := latestBlockHeight + 1; height < currentBlock.Height; height++ {
-		blockResp, err := n.Client.Block(ctx, &height)
+		block, err := n.FetchBlock(ctx, &height)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to sync with latest block")
+			continue
+		}
+		if block == nil {
 			continue
 		}
 
 		n.handleEvent(ctx, EventNewBlock, &ctypes.ResultEvent{
 			Query: "",
 			Data: types.EventDataNewBlock{
-				Block: blockResp.Block,
+				Block: block,
 			},
 			Events: make(map[string][]string),
 		})
@@ -342,12 +352,12 @@ func (n *Node) syncBlocks(ctx context.Context) {
 	n.handleEvent(ctx, EventNewBlock, &ctypes.ResultEvent{
 		Query: "",
 		Data: types.EventDataNewBlock{
-			Block: currentBlockResp.Block,
+			Block: currentBlock,
 		},
 		Events: make(map[string][]string),
 	})
 
-	n.saveLatestBlock(currentBlockResp.Block)
+	n.saveLatestBlock(currentBlock)
 }
 
 func (n *Node) Stop(ctx context.Context) error {

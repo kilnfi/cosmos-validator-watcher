@@ -61,13 +61,13 @@ func (w *BlockWatcher) OnNodeStart(ctx context.Context, node *rpc.Node) error {
 		return fmt.Errorf("failed to sync validator set: %w", err)
 	}
 
-	blockResp, err := node.Client.Block(ctx, nil)
+	block, err := node.FetchBlock(ctx, nil)
 	if err != nil {
 		log.Warn().Err(err).
 			Str("node", node.Redacted()).
 			Msg("failed to get latest block")
-	} else {
-		w.handleNodeBlock(node, blockResp.Block)
+	} else if block != nil {
+		w.handleNodeBlock(node, block)
 	}
 
 	// Ticker to sync validator set
