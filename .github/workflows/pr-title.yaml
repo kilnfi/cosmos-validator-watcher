@@ -12,7 +12,7 @@ permissions:
 jobs:
   main:
     name: Validate PR title
-    runs-on: ubuntu-latest
+    runs-on: fixed-egress-2c-8g
     steps:
       # Please look up the latest version from
       # https://github.com/amannn/action-semantic-pull-request/releases

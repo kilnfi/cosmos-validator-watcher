@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: fixed-egress-2c-8g
     steps:
       - uses: release-drafter/release-drafter@v5
         env:
