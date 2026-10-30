@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	slashing "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
@@ -67,16 +66,12 @@ func (w *ValidatorsWatcher) fetchSigningInfos(ctx context.Context, node *rpc.Nod
 	if !w.opts.NoSlashing {
 		clientCtx := (client.Context{}).WithClient(node.Client)
 		queryClient := slashing.NewQueryClient(clientCtx)
-		signingInfos, err := queryClient.SigningInfos(ctx, &slashing.QuerySigningInfosRequest{
-			Pagination: &query.PageRequest{
-				Limit: 3000,
-			},
-		})
+		signingInfos, err := FetchAllSigningInfos(ctx, queryClient)
 		if err != nil {
 			return fmt.Errorf("failed to get signing infos: %w", err)
 		}
 
-		w.handleSigningInfos(node.ChainID(), signingInfos.Info)
+		w.handleSigningInfos(node.ChainID(), signingInfos)
 
 		return nil
 	} else {
@@ -89,16 +84,12 @@ func (w *ValidatorsWatcher) fetchValidators(ctx context.Context, node *rpc.Node)
 	clientCtx := (client.Context{}).WithClient(node.Client)
 	queryClient := staking.NewQueryClient(clientCtx)
 
-	validators, err := queryClient.Validators(ctx, &staking.QueryValidatorsRequest{
-		Pagination: &query.PageRequest{
-			Limit: 3000,
-		},
-	})
+	validators, err := FetchAllValidators(ctx, queryClient)
 	if err != nil {
 		return fmt.Errorf("failed to get validators: %w", err)
 	}
 
-	w.handleValidators(node.ChainID(), validators.Validators)
+	w.handleValidators(node.ChainID(), validators)
 
 	return nil
 }

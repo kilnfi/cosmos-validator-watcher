@@ -12,7 +12,6 @@ import (
 	upgrade "cosmossdk.io/x/upgrade/types"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/fatih/color"
 	"github.com/kilnfi/cosmos-validator-watcher/pkg/crypto"
@@ -379,15 +378,11 @@ func createTrackedValidators(ctx context.Context, pool *rpc.Pool, validators []s
 		clientCtx := (client.Context{}).WithClient(node.Client)
 		queryClient := staking.NewQueryClient(clientCtx)
 
-		resp, err := queryClient.Validators(ctx, &staking.QueryValidatorsRequest{
-			Pagination: &query.PageRequest{
-				Limit: 3000,
-			},
-		})
+		resp, err := watcher.FetchAllValidators(ctx, queryClient)
 		if err != nil {
 			return nil, err
 		}
-		stakingValidators = resp.Validators
+		stakingValidators = resp
 	}
 
 	trackedValidators := lo.Map(validators, func(v string, _ int) watcher.TrackedValidator {
